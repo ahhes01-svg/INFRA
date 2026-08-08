@@ -139,6 +139,9 @@ tailwind.config = {
   html{ font-family:'Inter',system-ui,sans-serif; }
   body{ background:var(--s0); color:var(--ink1); font-size:14px; }
   [x-cloak]{ display:none !important; }
+  /* Disponible aunque el CDN de Tailwind no cargue */
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
   /* Foco visible por teclado — siempre */
   :focus-visible{ outline:2px solid var(--focus); outline-offset:2px; border-radius:4px; }
