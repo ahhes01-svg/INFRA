@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notificaciones · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body data-page="notificaciones" data-title="Notificaciones" class="bg-surface-0">
+
+<main id="page" x-data="{ filtro: '' }">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-3 max-w-3xl">
+      <template x-for="i in 6">
+        <div class="ui-card p-4 flex gap-3" aria-hidden="true">
+          <div class="ui-skel" style="width:32px;height:32px;border-radius:999px"></div>
+          <div class="flex-1 space-y-2"><div class="ui-skel" style="width:45%;height:13px"></div><div class="ui-skel" style="width:85%;height:11px"></div></div>
+        </div>
+      </template>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.emptyState({ icon:'bell', title:'Bandeja al día', desc:'No tienes notificaciones. Los eventos de la operación (incidencias, retrasos, evidencias) llegarán aquí.' })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo sincronizar la bandeja de notificaciones.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="max-w-3xl space-y-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center border border-line rounded-md p-0.5 bg-surface-2" role="group" aria-label="Filtrar notificaciones">
+        <button class="px-3 h-7 rounded text-sm font-medium tr-150" :class="filtro==='' ? 'bg-surface-1 shadow-e1' : 'text-ink-3 hover:text-ink-1'" @click="filtro=''">Todas</button>
+        <button class="px-3 h-7 rounded text-sm font-medium tr-150" :class="filtro==='no' ? 'bg-surface-1 shadow-e1' : 'text-ink-3 hover:text-ink-1'" @click="filtro='no'">
+          No leídas <span class="mono text-xs" x-text="'('+$store.db.notificaciones.filter(n=>!n.leida).length+')'"></span>
+        </button>
+      </div>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm ml-auto" @click="ACCIONES.marcarTodasLeidas(); $store.toasts.push('info','Bandeja al día','Todas las notificaciones quedaron leídas.')">Marcar todas leídas</button>
+    </div>
+
+    <template x-for="n in $store.db.notificaciones.filter(n => filtro!=='no' || !n.leida)" :key="n.id">
+      <article class="ui-card p-4 flex gap-3 items-start tr-200" :class="!n.leida && 'border-l-2'" :style="!n.leida ? 'border-left-color:var(--st-ejecucion)' : 'opacity:.85'">
+        <span class="mt-0.5" :style="'color:var(--st-'+(n.tipo==='completado'?'completado':n.tipo==='critico'?'critico':n.tipo==='ejecucion'?'ejecucion':'pendiente')+')'"
+          x-html="UI.icon(n.tipo==='critico'?'alertCircle':n.tipo==='completado'?'checkCircle':n.tipo==='ejecucion'?'zap':'info', 18)"></span>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium" :class="!n.leida ? 'text-ink-1' : 'text-ink-2'" x-text="n.titulo"></p>
+          <p class="text-sm text-ink-2 mt-0.5" x-text="n.detalle"></p>
+          <p class="mono text-xs text-ink-3 mt-1" x-text="UI.fmt.fecha(n.fecha) + ' · ' + n.hora"></p>
+        </div>
+        <div class="flex gap-1.5 flex-none">
+          <a :href="$store.ui.href(n.link.replace('.html',''))" class="ui-btn ui-btn-secondary ui-btn-sm" @click="ACCIONES.marcarLeida(n.id)">Ir</a>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="!n.leida" @click="ACCIONES.marcarLeida(n.id)" x-tooltip="'Marcar leída'" aria-label="Marcar leída" x-html="UI.icon('check',14)"></button>
+        </div>
+      </article>
+    </template>
+    <div class="ui-card" x-show="!$store.db.notificaciones.filter(n => filtro!=='no' || !n.leida).length"
+      x-html="UI.emptyState({icon:'bell', title:'Nada pendiente', desc:'No hay notificaciones sin leer.'})"></div>
+  </div>
+</main>
+
+</body>
+</html>

@@ -50,6 +50,10 @@ window.TOKENS = {
 };
 
 /* --- Configuración de Tailwind (CDN) --------------------------------------*/
+if (typeof tailwind === 'undefined') {
+  console.warn('Tailwind CDN no disponible; la interfaz usará solo el CSS de tokens/componentes.');
+  window.tailwind = {};
+}
 tailwind.config = {
   darkMode: 'class',
   theme: {

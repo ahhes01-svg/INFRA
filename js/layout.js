@@ -18,7 +18,7 @@
   const NAV = [
     { id: 'mi-jornada', label: 'Mi jornada', icon: 'smartphone', roles: ['tecnico'] },
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', roles: ['admin', 'supervisor'] },
-    { id: 'supervision', label: 'Supervisión', icon: 'shield', roles: ['supervisor', 'admin'] },
+    { id: 'supervision', label: 'Supervisión', icon: 'shield', roles: ['supervisor'] },
     { id: 'proyectos', label: 'Proyectos', icon: 'folder', roles: ['admin', 'supervisor'] },
     { id: 'bts', label: 'BTS / Sitios', icon: 'tower', roles: ['admin', 'supervisor', 'tecnico'] },
     { id: 'tecnicos', label: 'Técnicos', icon: 'users', roles: ['admin', 'supervisor'] },

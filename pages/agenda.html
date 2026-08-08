@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function agendaPage() {
+  return {
+    cal: null,
+    filtroTec: '',
+    nuevo: false,
+    conflicto: null, // {actividad, tecnico} cuando el formulario detecta cruce
+    form: { tipoId: 'ta-10', sitioId: 'st-06', tecnicos: [], fecha: window.HOY, hIni: '08:00', hFin: '12:00' },
+
+    init() {
+      this.$nextTick(() => this.montar());
+      window.addEventListener('app:data', () => this.cal && this.cal.refetchEvents());
+      this.$watch('filtroTec', () => this.cal && this.cal.refetchEvents());
+    },
+
+    eventos() {
+      const K = { completada: 'completado', en_ejecucion: 'ejecucion', pendiente: 'pendiente', retrasada: 'critico', cancelada: 'cancelado' };
+      let acts = Alpine.store('db').actividades;
+      if (Alpine.store('ui').role === 'tecnico') acts = acts.filter(a => a.tecnicos.includes(Alpine.store('db').sesion.tecnicoDemoId));
+      else if (this.filtroTec) acts = acts.filter(a => a.tecnicos.includes(this.filtroTec));
+      return acts.map(a => ({
+        id: a.id,
+        title: `${CALC.sitio(a.sitioId).codigo} · ${CALC.tipo(a.tipoId).nombre}`,
+        start: `${a.fecha}T${a.hIni}:00`,
+        end: `${a.fecha}T${a.hFin}:00`,
+        classNames: ['st-ev-' + (K[a.estado] || 'cancelado')],
+        editable: ['pendiente', 'retrasada'].includes(a.estado) && Alpine.store('ui').puede('asignar'),
+      }));
+    },
+
+    montar() {
+      this.cal = new FullCalendar.Calendar(this.$refs.cal, {
+        initialView: window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek',
+        initialDate: window.HOY,
+        locale: 'es',
+        firstDay: 1,
+        allDaySlot: false,
+        slotMinTime: '06:00:00',
+        slotMaxTime: '20:00:00',
+        height: 620,
+        nowIndicator: false,
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay,dayGridMonth' },
+        buttonText: { today: 'Hoy', week: 'Semana', day: 'Día', month: 'Mes' },
+        events: (info, ok) => ok(this.eventos()),
+        editable: true,
+        eventDurationEditable: false,
+        // Arrastre con guía de destino; rechazo visual si el horario se cruza
+        eventDrop: (info) => {
+          const id = info.event.id;
+          const act = CALC.actividad(id);
+          const f = info.event.start;
+          const p2 = n => String(n).padStart(2, '0');
+          const fecha = `${f.getFullYear()}-${p2(f.getMonth() + 1)}-${p2(f.getDate())}`;
+          // En la vista de mes el evento pierde la hora: se conserva el horario original
+          const soloFecha = info.view.type === 'dayGridMonth' || !info.event.end;
+          const hIni = soloFecha ? act.hIni : `${p2(f.getHours())}:${p2(f.getMinutes())}`;
+          const hFin = soloFecha ? act.hFin : `${p2(info.event.end.getHours())}:${p2(info.event.end.getMinutes())}`;
+          const r = ACCIONES.reprogramarActividad(id, fecha, hIni, hFin, Alpine.store('db').sesion.usuario);
+          if (!r.ok) {
+            info.revert();
+            info.el.classList.add('ev-rechazo');
+            setTimeout(() => info.el.classList.remove('ev-rechazo'), 400);
+            Alpine.store('toasts').push('warn', 'Cruce de horario',
+              `${r.tecnico.nombre} ya tiene ${r.conflicto.id} (${r.conflicto.hIni}–${r.conflicto.hFin}) ese día.`);
+          } else {
+            Alpine.store('toasts').push('ok', 'Actividad reprogramada', `${id} → ${fecha} ${hIni}–${hFin}`);
+          }
+        },
+        eventClick: (info) => {
+          location.href = 'actividades.html' + location.search.replace(/([?&])id=[^&]*&?/, '$1') + '&id=' + info.event.id;
+        },
+      });
+      this.cal.render();
+    },
+
+    // Validación en vivo del formulario de asignación
+    get cruceForm() {
+      for (const tid of this.form.tecnicos) {
+        const c = CALC.conflicto(tid, this.form.fecha, this.form.hIni, this.form.hFin);
+        if (c) return { c, t: CALC.tecnico(tid) };
+      }
+      return null;
+    },
+    crear() {
+      if (!this.form.tecnicos.length) { Alpine.store('toasts').push('error', 'Selecciona al menos un técnico'); return; }
+      if (this.form.hFin <= this.form.hIni) { Alpine.store('toasts').push('error', 'El fin debe ser posterior al inicio'); return; }
+      const sitio = CALC.sitio(this.form.sitioId);
+      const r = ACCIONES.crearActividad({ ...this.form, proyectoId: sitio.proyectoId, obs: '' }, Alpine.store('db').sesion.usuario);
+      if (!r.ok) {
+        Alpine.store('toasts').push('warn', 'Cruce de horario', `${r.tecnico.nombre} ya tiene ${r.conflicto.id} en ese rango.`);
+        return;
+      }
+      this.nuevo = false;
+      this.form.tecnicos = [];
+      Alpine.store('toasts').push('ok', 'Actividad programada', `${r.id} · ${sitio.codigo} · ${this.form.fecha}`);
+    },
+    cargaHoy(tid) {
+      return CALC.actividadesDeTecnico(tid, window.HOY).filter(a => a.estado !== 'cancelada');
+    },
+  };
+}
+</script>
+</head>
+<body data-page="agenda" data-title="Agenda y asignación" class="bg-surface-0">
+
+<main id="page" x-data="agendaPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="grid lg:grid-cols-4 gap-4">
+      <div class="lg:col-span-3 ui-card p-4"><div class="ui-skel mb-3" style="width:220px;height:16px"></div><div class="ui-skel" style="height:560px"></div></div>
+      <div class="space-y-3" x-html="UI.skel.cards(4)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'calendar', title:'Agenda vacía', desc:'No hay actividades programadas en este rango. Programa la primera para verla en el calendario.', action: UI.btn({label:'Programar actividad', icon:'plus'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo sincronizar la agenda con el servidor de planificación.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="grid lg:grid-cols-4 gap-4 items-start">
+
+    <!-- Calendario -->
+    <section class="lg:col-span-3 ui-card p-4" aria-label="Calendario de actividades">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <p class="text-sm text-ink-2">Arrastra una actividad <span class="font-medium text-ink-1">pendiente o retrasada</span> para reprogramarla. Si el horario se cruza con otra de la misma cuadrilla, el cambio se rechaza.</p>
+        <select class="ui-select ml-auto" style="width:190px" x-model="filtroTec" x-show="$store.ui.role!=='tecnico'" aria-label="Filtrar por técnico">
+          <option value="">Toda la cuadrilla</option>
+          <template x-for="t in $store.db.tecnicos" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
+        </select>
+        <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')" @click="nuevo=true"
+          x-html="UI.icon('plus',15)+' Programar'"></button>
+      </div>
+      <div x-ref="cal"></div>
+      <div class="flex gap-3 mt-3 flex-wrap" x-html="['completada','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
+    </section>
+
+    <!-- Disponibilidad de técnicos -->
+    <aside class="space-y-3" aria-label="Disponibilidad de técnicos">
+      <h2 class="text-sm font-semibold">Disponibilidad hoy <span class="mono text-xs text-ink-3" x-text="$store.ui.hoy"></span></h2>
+      <template x-for="t in $store.db.tecnicos.filter(t=>t.estado!=='inactivo')" :key="t.id">
+        <button class="ui-card p-3 w-full text-left hover:shadow-e2 tr-150" @click="filtroTec = filtroTec===t.id ? '' : t.id"
+          :class="filtroTec===t.id && 'ring-2 ring-brand-500'" :aria-pressed="filtroTec===t.id">
+          <div class="flex items-center gap-2.5">
+            <span x-html="UI.avatar(t, 32)"></span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium truncate" x-text="t.nombre"></p>
+              <p class="text-xs text-ink-3" x-text="t.rol"></p>
+            </div>
+            <span x-html="UI.badge(t.estado)"></span>
+          </div>
+          <!-- franja horaria ocupada del día -->
+          <div class="relative h-2.5 mt-2 rounded-full bg-surface-3 overflow-hidden" aria-hidden="true">
+            <template x-for="a in cargaHoy(t.id)" :key="a.id">
+              <div class="absolute top-0 bottom-0 rounded-full"
+                :style="`left:${((+a.hIni.slice(0,2))*60 + +a.hIni.slice(3) - 360) / 840 * 100}%;
+                         width:${((+a.hFin.slice(0,2))*60 + +a.hFin.slice(3) - (+a.hIni.slice(0,2))*60 - +a.hIni.slice(3)) / 840 * 100}%;
+                         background:var(--st-${UI.estadoInfo(a.estado).key})`"></div>
+            </template>
+          </div>
+          <p class="text-xs text-ink-3 mt-1.5">
+            <span class="mono" x-text="cargaHoy(t.id).length"></span> actividad(es) hoy
+            <span x-show="cargaHoy(t.id).length" class="mono" x-text="'· ' + cargaHoy(t.id).map(a=>a.hIni+'–'+a.hFin).join(', ')"></span>
+          </p>
+        </button>
+      </template>
+      <p class="text-xs text-ink-3">Franja de 06:00 a 20:00. Toca un técnico para filtrar su agenda.</p>
+    </aside>
+  </div>
+
+  <!-- Modal de asignación con advertencia de cruce en vivo -->
+  <template x-if="nuevo">
+    <div @keydown.escape.window="nuevo=false">
+      <div class="ui-backdrop" @click="nuevo=false" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="na-title">
+        <div class="ui-modal-box" style="max-width:560px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="na-title">Programar actividad</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="nuevo=false" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label class="ui-label" for="na-tipo">Tipo de actividad</label>
+                <select id="na-tipo" class="ui-select" x-model="form.tipoId">
+                  <template x-for="t in $store.db.tiposActividad" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="na-sitio">Sitio (BTS)</label>
+                <select id="na-sitio" class="ui-select mono text-xs" x-model="form.sitioId">
+                  <template x-for="s in $store.db.sitios.slice(0,20)" :key="s.id"><option :value="s.id" x-text="s.codigo"></option></template>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="na-fecha">Fecha</label>
+                <input id="na-fecha" type="date" class="ui-input" x-model="form.fecha">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="ui-label" for="na-hi">Inicio</label><input id="na-hi" type="time" class="ui-input" x-model="form.hIni"></div>
+                <div><label class="ui-label" for="na-hf">Fin</label><input id="na-hf" type="time" class="ui-input" x-model="form.hFin"></div>
+              </div>
+            </div>
+            <div>
+              <p class="ui-label">Cuadrilla asignada</p>
+              <div class="grid sm:grid-cols-2 gap-1 max-h-44 overflow-y-auto border border-line rounded-md p-2">
+                <template x-for="t in $store.db.tecnicos.filter(t=>t.estado!=='inactivo')" :key="t.id">
+                  <label class="flex items-center gap-2 p-1.5 rounded hover:bg-surface-2 cursor-pointer text-sm">
+                    <input type="checkbox" class="ui-check" :value="t.id" x-model="form.tecnicos">
+                    <span x-html="UI.avatar(t,24)"></span>
+                    <span class="truncate" x-text="t.nombre"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+            <!-- Advertencia de cruce en vivo -->
+            <div x-show="cruceForm" x-cloak class="p-3 rounded-md border text-sm flex gap-2.5"
+              style="background:var(--st-pendiente-bg);border-color:var(--st-pendiente-bd)" role="alert">
+              <span style="color:var(--st-pendiente)" x-html="UI.icon('alert',16)"></span>
+              <div>
+                <p class="font-semibold">Cruce de horario detectado</p>
+                <p class="text-ink-2 text-xs mt-0.5" x-text="cruceForm && `${cruceForm.t.nombre} ya tiene ${cruceForm.c.id} (${CALC.tipo(cruceForm.c.tipoId).nombre}) el ${cruceForm.c.fecha} de ${cruceForm.c.hIni} a ${cruceForm.c.hFin}. Cambia el horario o el técnico.`"></p>
+              </div>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="nuevo=false">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" :disabled="!!cruceForm || !form.tecnicos.length" @click="crear()">Programar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>

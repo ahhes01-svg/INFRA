@@ -202,6 +202,16 @@
   .fc .fc-event{ border-radius:4px; font-size:11px; border:none; padding:1px 4px; cursor:pointer; }
   .fc-event.ev-conflicto{ outline:2px dashed var(--st-critico); outline-offset:1px; }
   .fc .fc-highlight{ background:var(--st-ejecucion-bg); }
+  /* Eventos por estado: fondo suave + borde izquierdo saturado, texto siempre legible */
+  .fc-event.st-ev-completado{ background:var(--st-completado-bg) !important; border-left:3px solid var(--st-completado) !important; color:var(--ink1) !important; }
+  .fc-event.st-ev-ejecucion { background:var(--st-ejecucion-bg) !important;  border-left:3px solid var(--st-ejecucion) !important;  color:var(--ink1) !important; }
+  .fc-event.st-ev-pendiente { background:var(--st-pendiente-bg) !important;  border-left:3px solid var(--st-pendiente) !important;  color:var(--ink1) !important; }
+  .fc-event.st-ev-critico   { background:var(--st-critico-bg) !important;    border-left:3px solid var(--st-critico) !important;    color:var(--ink1) !important; }
+  .fc-event.st-ev-cancelado { background:var(--st-cancelado-bg) !important;  border-left:3px solid var(--st-cancelado) !important;  color:var(--ink3) !important; text-decoration:line-through; }
+  .fc-event .fc-event-time, .fc-event .fc-event-title{ font-family:'JetBrains Mono',monospace; font-size:10px; }
+  .fc-event .fc-event-title{ font-family:'Inter',sans-serif; font-size:11px; }
+  @keyframes evShake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .ev-rechazo{ animation:evShake .25s ease-out; outline:2px dashed var(--st-critico); }
 
   /* ---------- Leaflet: adaptación al sistema ---------- */
   .leaflet-container{ background:var(--s2); border-radius:8px; font-family:'Inter',sans-serif; }

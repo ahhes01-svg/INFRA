@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Materiales · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body data-page="materiales" data-title="Materiales" class="bg-surface-0">
+
+<main id="page" x-data="{ menu: null, mx: 0, my: 0 }">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3" x-html="UI.skel.kpis(3)"></div>
+      <div x-html="UI.skel.table(10,6)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'box', title:'Almacén sin materiales', desc:'Registra los materiales y repuestos para controlar stock y mínimos.', action: UI.btn({label:'Registrar material', icon:'plus'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El sistema de almacén no respondió (ERP fuera de línea).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4"
+    x-data="dataTable({ rows: () => $store.db.materiales.map(m => ({...m, estado: CALC.estadoMaterial(m)})), sortKey: 'id', pageSize: 10, filters: { estado: '', categoria: '' } })">
+
+    <section class="grid grid-cols-2 md:grid-cols-3 gap-3" aria-label="Resumen de almacén">
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('box',13)+'Ítems en catálogo'"></span><span class="kpi-value" x-countup="$store.db.materiales.length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('arrowDown',13)+'Bajo mínimo'"></span><span class="kpi-value" style="color:var(--st-pendiente)" x-countup="$store.db.materiales.filter(m=>CALC.estadoMaterial(m)==='stock_bajo').length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('alertCircle',13)+'Sin stock'"></span><span class="kpi-value" style="color:var(--st-critico)" x-countup="$store.db.materiales.filter(m=>CALC.estadoMaterial(m)==='sin_stock').length">0</span></div>
+    </section>
+
+    <div class="p-3 rounded-md border text-sm flex gap-2.5 items-start" role="note"
+      x-show="$store.db.materiales.some(m=>CALC.estadoMaterial(m)==='sin_stock')"
+      style="background:var(--st-critico-bg);border-color:var(--st-critico-bd)">
+      <span style="color:var(--st-critico)" x-html="UI.icon('alert',16)"></span>
+      <p class="text-ink-2"><span class="font-semibold text-ink-1">Stock crítico:</span>
+        el rectificador 48 V (MAT-007) está en cero y bloquea el correctivo <span class="mono text-xs">ACT-0024</span> de IC-PARCONA-0233, cuya incidencia crítica está vencida.</p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="Código o descripción…" x-model="q" aria-label="Buscar material">
+      </div>
+      <select class="ui-select" style="width:150px" x-model="filters.categoria" aria-label="Categoría">
+        <option value="">Toda categoría</option><option>RF</option><option>Radio</option><option>Energía</option><option>Obra</option>
+      </select>
+      <select class="ui-select" style="width:150px" x-model="filters.estado" aria-label="Estado de stock">
+        <option value="">Todo estado</option><option value="disponible">Disponible</option>
+        <option value="stock_bajo">Stock bajo</option><option value="sin_stock">Sin stock</option>
+      </select>
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="resetFilters()">Limpiar</button>
+      <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" @click="UI.protoNotice()" x-html="UI.icon('plus',15)+' Registrar material'"></button>
+    </div>
+
+    <div class="ui-table-wrap">
+      <table class="ui-table" aria-label="Materiales en almacén">
+        <thead><tr>
+          <th class="col-sticky sortable" @click="sortBy('id')">Código <span x-text="sortIcon('id')"></span></th>
+          <th class="sortable" @click="sortBy('nombre')">Material <span x-text="sortIcon('nombre')"></span></th>
+          <th>Categoría</th><th>Almacén</th>
+          <th class="sortable text-right" @click="sortBy('stock')">Stock <span x-text="sortIcon('stock')"></span></th>
+          <th class="text-right">Mínimo</th><th>Nivel</th><th>Estado</th><th><span class="sr-only">Acciones</span></th>
+        </tr></thead>
+        <tbody>
+          <template x-for="m in paged" :key="m.id">
+            <tr @contextmenu.prevent="menu=m.id; mx=Math.min($event.clientX, innerWidth-200); my=Math.min($event.clientY, innerHeight-170)">
+              <td class="col-sticky mono text-xs" x-text="m.id"></td>
+              <td x-text="m.nombre"></td>
+              <td class="text-xs" x-text="m.categoria"></td>
+              <td class="text-xs" x-text="m.almacen"></td>
+              <td class="mono text-right" :style="m.stock===0 ? 'color:var(--st-critico);font-weight:600' : ''" x-text="m.stock + ' ' + m.unidad"></td>
+              <td class="mono text-right text-ink-3" x-text="m.minimo"></td>
+              <td x-html="UI.progress(Math.min(100, m.stock / (m.minimo*2) * 100), { estado: m.stock < m.minimo ? 'critico' : '' })"></td>
+              <td x-html="UI.badge(m.estado)"></td>
+              <td class="row-actions text-right whitespace-nowrap">
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" x-tooltip="'Registrar movimiento — clic derecho para más'" @click="menu=m.id; mx=Math.min($event.clientX, innerWidth-200); my=Math.min($event.clientY, innerHeight-170)" aria-label="Acciones" x-html="UI.icon('dots',14)"></button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!filtered.length"><td colspan="9" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún material coincide con los filtros.'})"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between text-xs">
+      <span class="mono text-ink-2" x-text="rangeLabel"></span>
+      <div class="flex gap-1">
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
+        <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menú contextual de material -->
+  <template x-if="menu">
+    <div class="fixed inset-0 z-50" @click="menu=null" @keydown.escape.window="menu=null">
+      <div class="ui-menu shadow-e2" :style="`left:${mx}px;top:${my}px`" role="menu">
+        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('arrowUp',14)"></span> Registrar ingreso</button>
+        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('arrowDown',14)"></span> Despachar a sitio</button>
+        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('file',14)"></span> Ver kardex</button>
+        <div class="ui-menu-sep"></div>
+        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('refresh',14)"></span> Solicitar reposición</button>
+      </div>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>
