@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-page="configuracion" data-title="Configuración" class="bg-surface-0">
 
@@ -21,7 +23,7 @@
     <div class="max-w-4xl grid md:grid-cols-2 gap-4" x-html="UI.skel.cards(4)"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
     <div class="ui-card mt-8 max-w-4xl" x-html="UI.emptyState({ icon:'settings', title:'Sin parámetros personalizados', desc:'Esta cuenta usa la configuración por defecto del sistema.' })"></div>
@@ -60,7 +62,7 @@
         <p class="text-sm text-ink-2">El selector de rol del navbar cambia los módulos y acciones visibles: Administrador ve todo, Supervisor gestiona la operación y el Técnico solo su trabajo de campo.</p>
         <div class="border-t border-line pt-4 space-y-2">
           <button class="ui-btn ui-btn-secondary ui-btn-md w-full" @click="UI.protoNotice()" x-html="UI.icon('user',14)+' Gestionar usuarios y permisos'"></button>
-          <a href="../index.html" class="ui-btn ui-btn-ghost ui-btn-md w-full" x-html="UI.icon('logout',14)+' Cerrar sesión'"></a>
+          <button class="ui-btn ui-btn-ghost ui-btn-md w-full" @click="$store.ui.cerrarSesion()" x-html="UI.icon('logout',14)+' Cerrar sesión'"></button>
         </div>
       </div>
     </section>

@@ -56,7 +56,7 @@
     const css = `
     .shell{ display:flex; height:100vh; height:100dvh; overflow:hidden; }
     .shell-side{ display:flex; flex-direction:column; width:224px; flex:none;
-      background:var(--s1); border-right:1px solid var(--line); }
+      background:var(--s1); border-right:1px solid var(--line); position:relative; z-index:20; }
     .shell-scrim{ display:none; }
     .shell-burger{ display:none; }
     @media (max-width:1023px){
@@ -87,7 +87,7 @@
 
     .shell-main{ flex:1; display:flex; flex-direction:column; min-width:0; }
     .shell-top{ height:56px; flex:none; background:var(--s1); border-bottom:1px solid var(--line);
-      display:flex; align-items:center; gap:8px; padding:0 16px; }
+      display:flex; align-items:center; gap:8px; padding:0 16px; position:relative; z-index:20; }
     .shell-top .t-title{ font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .shell-top .t-right{ margin-left:auto; display:flex; align-items:center; gap:6px; }
     .shell-top select.ui-select{ width:auto; height:32px; font-size:13px; padding-right:26px; }
@@ -128,10 +128,13 @@
     .bell-all:hover{ text-decoration:underline; }
     .dark .bell-all{ color:#60a5fa; }
 
-    .user-chip{ display:flex; align-items:center; gap:8px; padding-left:10px; border-left:1px solid var(--line); }
-    .user-chip .u-meta{ line-height:1.2; }
-    .user-chip .u-n{ font-size:13px; font-weight:500; white-space:nowrap; }
-    .user-chip .u-r{ font-size:11px; color:var(--ink3); }
+    .user-chip{ display:flex; align-items:center; padding-left:10px; border-left:1px solid var(--line); }
+    .user-btn{ display:flex; align-items:center; gap:8px; background:none; border:none; cursor:pointer;
+      padding:4px 6px; border-radius:6px; color:inherit; transition:background .15s ease-out; }
+    .user-btn:hover{ background:var(--s2); }
+    .user-chip .u-meta{ line-height:1.2; text-align:left; }
+    .user-chip .u-n{ font-size:13px; font-weight:500; white-space:nowrap; display:block; }
+    .user-chip .u-r{ font-size:11px; color:var(--ink3); display:block; }
     @media (max-width:1279px){ .user-chip .u-meta{ display:none; } }
 
     #main-slot{ flex:1; overflow-y:auto; }
@@ -153,13 +156,57 @@
     document.head.appendChild(el);
   })();
 
+  /* ── Arranque: sesión y datos antes del primer render ─────────────────── */
+  // Alpine 3 no tiene `deferLoadingAlpine` (era de Alpine 2), así que lo
+  // cargamos nosotros cuando la sesión y los datos ya están resueltos. Así la
+  // interfaz nunca parpadea con la caché vacía ni muestra datos de otro rol.
+  const ALPINE_CDN = 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js';
+
+  function cargarAlpine() {
+    if (window.Alpine) return;
+    const s = document.createElement('script');
+    s.src = ALPINE_CDN;
+    s.defer = true;
+    document.head.appendChild(s);
+  }
+
+  async function arrancar() {
+    let estado = { modoDemo: true, sesion: null };
+    try {
+      estado = await window.API.iniciar();
+    } catch (e) {
+      console.error('Fallo al iniciar la conexión:', e);
+    }
+
+    const layout = document.body.dataset.layout || 'shell';
+    if (!estado.modoDemo && !window.API.sesionActiva() && layout !== 'bare') {
+      // Sin sesión: al login, recordando a dónde quería ir
+      const destino = encodeURIComponent(location.pathname.split('/').pop() + location.search);
+      location.replace(`../index.html?next=${destino}`);
+      return;
+    }
+
+    if (!estado.modoDemo && window.API.sesionActiva()) {
+      const r = await window.API.cargarTodo();
+      if (!r.ok) window.__errorCarga = r.error;
+    }
+    cargarAlpine();
+  }
+
   document.addEventListener('alpine:init', () => {
     Alpine.store('db', window.DB);
 
+    // Con backend, el rol lo manda la cuenta: no se elige desde la interfaz.
+    const perfil = window.API && window.API.miPerfil ? window.API.miPerfil() : null;
+    const demo = !window.API || window.API.estaEnDemo();
+    const rolEfectivo = (!demo && perfil) ? perfil.rol : ROLE;
+
     Alpine.store('ui', {
-      role: ROLE,
+      role: rolEfectivo,
+      demo,
       theme: THEME,
-      view: 'data',            // data | loading | empty | error
+      view: window.__errorCarga ? 'error' : 'data',   // data | loading | empty | error
+      errorCarga: window.__errorCarga || '',
       sidebarOpen: false,
       bellOpen: false,
       hoy: window.HOY,
@@ -175,6 +222,12 @@
         window.dispatchEvent(new CustomEvent('app:theme'));
       },
       setRole(r) {
+        // Con backend real el rol viene de la cuenta y no se puede cambiar aquí.
+        if (!this.demo) {
+          Alpine.store('toasts').push('info', 'El rol lo define tu cuenta',
+            'Pide al administrador que cambie tu rol desde Configuración.');
+          return;
+        }
         this.role = r;
         const page = document.body.dataset.page;
         const item = NAV.find(n => n.id === page);
@@ -186,6 +239,10 @@
         const u = new URL(location.href); u.searchParams.set('role', r);
         history.replaceState(null, '', u);
       },
+      async cerrarSesion() {
+        if (window.API) await window.API.salir();
+        location.href = '../index.html';
+      },
       setView(v) { this.view = v; },
       // El técnico simulado al elegir el rol Técnico
       get tecnicoActual() { return window.CALC.tecnico(Alpine.store('db').sesion.tecnicoDemoId); },
@@ -195,9 +252,10 @@
   document.addEventListener('DOMContentLoaded', () => {
     const layout = document.body.dataset.layout || 'shell';
     injectToasts();
-    if (layout === 'bare') return;
-    if (layout === 'mobile') { injectMobileChrome(); return; }
-    injectShell();
+    if (layout === 'shell') injectShell();
+    else if (layout === 'mobile') injectMobileChrome();
+    // El shell ya está en el DOM: ahora resolvemos sesión y arrancamos Alpine
+    arrancar();
   });
 
   /* ── Shell de escritorio ─────────────────────────────────────────────── */
@@ -251,6 +309,13 @@
           <h1 class="t-title">${title}</h1>
 
           <div class="t-right">
+            <!-- Búsqueda global -->
+            <button class="ck-trigger" @click="window.dispatchEvent(new CustomEvent('app:cmdk'))" aria-label="Búsqueda global">
+              ${UI.icon('search', 14)}
+              <span class="ck-lbl">Buscar…</span>
+              <span class="ck-kbd">Ctrl K</span>
+            </button>
+
             <!-- Simulador de estados de pantalla (demo) -->
             <div class="seg" role="group" aria-label="Simular estado de pantalla" x-tooltip="'Demo: simula los 4 estados de la pantalla'">
               ${['data|Datos', 'loading|Carga', 'empty|Vacío', 'error|Error'].map(o => {
@@ -260,14 +325,25 @@
               }).join('')}
             </div>
 
-            <!-- Selector de rol -->
-            <label class="sr-only" for="rol-sel">Rol</label>
-            <select id="rol-sel" class="ui-select"
-              :value="$store.ui.role" @change="$store.ui.setRole($event.target.value)">
-              <option value="admin">Administrador</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="tecnico">Técnico</option>
-            </select>
+            <!-- Modo demo: aviso de que no hay backend detrás -->
+            <template x-if="$store.ui.demo">
+              <span class="ui-badge st-pendiente" x-tooltip="'Los cambios viven solo en memoria: no hay servidor conectado'">
+                <span class="dot" aria-hidden="true"></span>Modo demo
+              </span>
+            </template>
+
+            <!-- Selector de rol: editable solo en demo; con backend lo fija la cuenta -->
+            <template x-if="$store.ui.demo">
+              <span>
+                <label class="sr-only" for="rol-sel">Rol</label>
+                <select id="rol-sel" class="ui-select"
+                  :value="$store.ui.role" @change="$store.ui.setRole($event.target.value)">
+                  <option value="admin">Administrador</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="tecnico">Técnico</option>
+                </select>
+              </span>
+            </template>
 
             <!-- Tema -->
             <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="$store.ui.setTheme($store.ui.theme==='dark'?'light':'dark')"
@@ -311,11 +387,27 @@
             </div>
 
             <!-- Usuario -->
-            <div class="user-chip">
-              ${UI.avatar({ nombre: 'María Alejandra Grados' }, 32)}
-              <div class="u-meta">
-                <p class="u-n">M. Alejandra Grados</p>
-                <p class="u-r" x-text="$store.ui.rolLabel()"></p>
+            <div class="user-chip" x-data="{ menu: false }" style="position:relative">
+              <button class="user-btn" @click="menu = !menu" :aria-expanded="menu" aria-label="Menú de usuario">
+                <span x-html="UI.avatar({ nombre: $store.db.sesion.usuario }, 32)"></span>
+                <span class="u-meta">
+                  <span class="u-n" x-text="$store.db.sesion.usuario"></span>
+                  <span class="u-r" x-text="$store.ui.rolLabel()"></span>
+                </span>
+              </button>
+              <div class="ui-menu shadow-e2" style="right:0;top:calc(100% + 6px);left:auto" x-show="menu" x-cloak
+                @click.outside="menu = false" @keydown.escape.window="menu = false"
+                x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start" role="menu">
+                <div style="padding:8px 10px;border-bottom:1px solid var(--line)">
+                  <p style="font-size:13px;font-weight:600" x-text="$store.db.sesion.usuario"></p>
+                  <p style="font-size:11px;color:var(--ink3)" x-text="$store.db.sesion.cargo"></p>
+                </div>
+                <a :href="$store.ui.href('configuracion')" class="ui-menu-item" role="menuitem">
+                  ${UI.icon('settings', 14)} Configuración
+                </a>
+                <button class="ui-menu-item is-danger" role="menuitem" @click="$store.ui.cerrarSesion()">
+                  ${UI.icon('logout', 14)} Cerrar sesión
+                </button>
               </div>
             </div>
           </div>
@@ -325,6 +417,58 @@
 
     document.body.prepend(shell);
     shell.querySelector('#main-slot').appendChild(main);
+    injectCmdk();
+  }
+
+  /* ── Paleta de búsqueda global (Ctrl+K) ──────────────────────────────── */
+  function injectCmdk() {
+    const el = document.createElement('div');
+    el.setAttribute('x-data', 'cmdk()');
+    el.innerHTML = `
+      <template x-if="open">
+        <div @keydown.escape.window="hide()">
+          <div class="ui-backdrop" @click="hide()"></div>
+          <div class="ck-modal" role="dialog" aria-modal="true" aria-label="Búsqueda global">
+            <div class="ck-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start" @click.outside="hide()">
+              <div class="ck-input-row">
+                ${UI.icon('search', 16)}
+                <input x-ref="inp" type="text" x-model="q" @input="idx=0"
+                  placeholder="Sitio, actividad, técnico, proyecto, incidencia, material…"
+                  @keydown.arrow-down.prevent="mover(1)" @keydown.arrow-up.prevent="mover(-1)"
+                  @keydown.enter.prevent="ir()" aria-label="Buscar en todo el sistema">
+                <span class="ck-kbd">esc</span>
+              </div>
+              <div class="ck-list">
+                <template x-for="g in grupos" :key="g.nombre">
+                  <div>
+                    <p class="ck-group" x-text="g.nombre"></p>
+                    <template x-for="item in g.items" :key="item.href + item.t">
+                      <a :href="item.href" class="ck-item" :class="idxDe(item)===idx && 'is-active'"
+                        @mouseenter="idx = idxDe(item)">
+                        <span class="ck-ico" x-html="UI.icon(item.icon, 15)"></span>
+                        <span style="min-width:0">
+                          <span class="ck-t" style="display:block" x-text="item.t"></span>
+                          <span class="ck-s" style="display:block" x-text="item.s"></span>
+                        </span>
+                        <span class="ck-right" x-html="item.badge ? UI.badge(item.badge) : ''"></span>
+                      </a>
+                    </template>
+                  </div>
+                </template>
+                <div class="ck-empty" x-show="q.trim() && !planos.length">
+                  Sin resultados para «<span x-text="q"></span>». Prueba con un código de sitio (IC-…), un ID (ACT-…) o un nombre.
+                </div>
+              </div>
+              <div class="ck-foot">
+                <span><span class="ck-kbd">↑↓</span> navegar</span>
+                <span><span class="ck-kbd">↵</span> abrir</span>
+                <span><span class="ck-kbd">esc</span> cerrar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>`;
+    document.body.appendChild(el);
   }
 
   /* ── Chrome móvil (Mi jornada) ───────────────────────────────────────── */

@@ -9,13 +9,16 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-page="tecnicos" data-title="Técnicos" class="bg-surface-0">
 
-<main id="page" x-data="{ filtro: '', estado: '', sel: null }">
+<main id="page" x-data="{ filtro: '', estado: '', sel: null }"
+  x-init="const id = new URLSearchParams(location.search).get('id'); if (id && CALC.tecnico(id).id) sel = id">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3" x-html="UI.skel.cards(6)"></div>
@@ -24,7 +27,7 @@
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'users', title:'No hay técnicos registrados', desc:'Registra a tu personal de campo para poder asignar actividades.', action: UI.btn({label:'Registrar técnico', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la planilla de técnicos.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la planilla de técnicos.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

@@ -120,7 +120,9 @@ window.DB = {
     { id: 'ACT-0009', tipoId: 'ta-13', sitioId: 'st-10', proyectoId: 'pry-02', tecnicos: ['tec-04'], fecha: '2026-08-06', hIni: '09:00', hFin: '11:30', inicioReal: '09:12', finReal: '11:25', estado: 'completada', checklist: [], obs: 'VSWR máximo 1.18 en sector 2. Sin hallazgos.' },
     { id: 'ACT-0010', tipoId: 'ta-15', sitioId: 'st-08', proyectoId: 'pry-02', tecnicos: ['tec-06'], fecha: '2026-08-06', hIni: '08:00', hFin: '12:00', inicioReal: '08:05', finReal: '11:55', estado: 'completada', checklist: [], obs: 'Banco 48V 155Ah reemplazado. Autonomía medida 4h10 tras prueba de descarga. Banco retirado quedó en almacén Pisco.' },
     { id: 'ACT-0011', tipoId: 'ta-09', sitioId: 'st-01', proyectoId: 'pry-01', tecnicos: ['tec-09'], fecha: '2026-08-07', hIni: '07:00', hFin: '13:00', inicioReal: '07:03', finReal: '13:20', estado: 'completada', checklist: [], obs: 'Ruta centro de Ica + anillo vial. RSRP promedio -84 dBm en clúster. Log entregado a optimización.' },
-    { id: 'ACT-0012', tipoId: 'ta-10', sitioId: 'st-11', proyectoId: 'pry-02', tecnicos: ['tec-03'], fecha: '2026-08-07', hIni: '08:00', hFin: '12:30', inicioReal: '08:20', finReal: '12:55', estado: 'completada', checklist: [], obs: 'Preventivo ejecutado sin evidencia fotográfica por falla de cámara del móvil; se regularizará en próxima visita.' },
+    // En revisión: cerrada desde campo, pendiente de aprobación del supervisor
+    // (sin evidencia fotográfica: candidata natural al rechazo — caso demo)
+    { id: 'ACT-0012', tipoId: 'ta-10', sitioId: 'st-11', proyectoId: 'pry-02', tecnicos: ['tec-03'], fecha: '2026-08-07', hIni: '08:00', hFin: '12:30', inicioReal: '08:20', finReal: '12:55', estado: 'en_revision', checklist: [], obs: 'Preventivo ejecutado sin evidencia fotográfica por falla de cámara del móvil; se regularizará en próxima visita.' },
 
     { id: 'ACT-0013', tipoId: 'ta-07', sitioId: 'st-02', proyectoId: 'pry-01', tecnicos: ['tec-07', 'tec-02'], fecha: '2026-08-08', hIni: '08:00', hFin: '17:00', inicioReal: '08:12', finReal: null, estado: 'en_ejecucion', obs: 'Script de integración cargado. A la espera de ventana de RAN para activar portadora.', checklist: [
       { t: 'Verificar alimentación DC de RRU (53 V ± 1)', ok: true },
@@ -170,6 +172,23 @@ window.DB = {
     { id: 'ACT-0028', tipoId: 'ta-09', sitioId: 'st-14', proyectoId: 'pry-03', tecnicos: ['tec-09'], fecha: '2026-08-03', hIni: '07:00', hFin: '13:00', inicioReal: null, finReal: null, estado: 'cancelada', checklist: [], obs: 'Cliente pospuso la ventana de medición hasta integrar el segundo sitio del clúster.' },
     { id: 'ACT-0029', tipoId: 'ta-17', sitioId: 'st-13', proyectoId: 'pry-02', tecnicos: ['tec-08'], fecha: '2026-07-30', hIni: '08:00', hFin: '15:00', inicioReal: null, finReal: null, estado: 'cancelada', checklist: [], obs: 'Municipalidad observó permiso de trabajos en vía pública; se reingresó expediente.' },
     { id: 'ACT-0030', tipoId: 'ta-06', sitioId: 'st-15', proyectoId: 'pry-03', tecnicos: ['tec-06'], fecha: '2026-08-02', hIni: '08:00', hFin: '14:00', inicioReal: null, finReal: null, estado: 'cancelada', checklist: [], obs: 'Se reprogramará junto con la adecuación estructural para un solo viaje a Nazca.' },
+
+    // Doble asignación heredada del cliente: Marco (tec-02) sigue en el
+    // comisionamiento ACT-0013 hasta las 17:00 — cruce visible en el
+    // timeline de cuadrillas y al intentar reprogramar.
+    { id: 'ACT-0031', tipoId: 'ta-09', sitioId: 'st-03', proyectoId: 'pry-01', tecnicos: ['tec-09', 'tec-02'], fecha: '2026-08-08', hIni: '15:30', hFin: '18:30', inicioReal: null, finReal: null, estado: 'pendiente', checklist: [], obs: 'Ventana solicitada por el cliente con la cuadrilla ya comprometida; revisar el cruce de Marco Ccahuana con ACT-0013.' },
+  ],
+
+  /* ── Kardex de materiales (movimientos de almacén) ────────────────────── */
+  movimientos: [
+    { id: 'mv-08', materialId: 'MAT-002', tipo: 'despacho', cantidad: 6, fecha: '2026-08-04', hora: '07:35', actividadId: 'ACT-0005', sitioId: 'st-02', usuario: 'Almacén Ica' },
+    { id: 'mv-07', materialId: 'MAT-006', tipo: 'despacho', cantidad: 1, fecha: '2026-08-06', hora: '07:20', actividadId: 'ACT-0010', sitioId: 'st-08', usuario: 'Almacén Pisco' },
+    { id: 'mv-06', materialId: 'MAT-010', tipo: 'despacho', cantidad: 24, fecha: '2026-08-08', hora: '06:50', actividadId: 'ACT-0015', sitioId: 'st-14', usuario: 'Almacén Ica' },
+    { id: 'mv-05', materialId: 'MAT-003', tipo: 'despacho', cantidad: 18, fecha: '2026-08-03', hora: '07:10', actividadId: 'ACT-0004', sitioId: 'st-02', usuario: 'Almacén Ica' },
+    { id: 'mv-04', materialId: 'MAT-005', tipo: 'despacho', cantidad: 3, fecha: '2026-08-03', hora: '07:10', actividadId: 'ACT-0004', sitioId: 'st-02', usuario: 'Almacén Ica' },
+    { id: 'mv-03', materialId: 'MAT-006', tipo: 'ingreso', cantidad: 2, fecha: '2026-08-01', hora: '10:40', actividadId: null, sitioId: null, usuario: 'Compras Lima' },
+    { id: 'mv-02', materialId: 'MAT-004', tipo: 'despacho', cantidad: 3, fecha: '2026-07-31', hora: '06:45', actividadId: 'ACT-0003', sitioId: 'st-02', usuario: 'Almacén Ica' },
+    { id: 'mv-01', materialId: 'MAT-001', tipo: 'ingreso', cantidad: 6, fecha: '2026-07-28', hora: '09:15', actividadId: null, sitioId: null, usuario: 'Compras Lima' },
   ],
 
   /* ── Incidencias (5) ──────────────────────────────────────────────────── */
@@ -233,6 +252,7 @@ window.DB = {
 
   /* ── Notificaciones ───────────────────────────────────────────────────── */
   notificaciones: [
+    { id: 'n-00', tipo: 'pendiente', titulo: 'Cierre pendiente de aprobación', detalle: 'ACT-0012 · Preventivo en IC-SUNAMPE-0176 espera revisión del supervisor (sin evidencia fotográfica).', fecha: '2026-08-08', hora: '07:30', leida: false, link: 'actividades.html' },
     { id: 'n-01', tipo: 'critico', titulo: 'Incidencia crítica vencida hace 6 días', detalle: 'INC-2026-038 · Rectificador fuera de servicio en IC-PARCONA-0233. Límite: 02/08.', fecha: '2026-08-08', hora: '07:00', leida: false, link: 'incidencias.html' },
     { id: 'n-02', tipo: 'critico', titulo: 'Material sin stock bloquea correctivo', detalle: 'MAT-007 Rectificador 48V/3000W en 0 unidades. ACT-0024 sigue retrasada.', fecha: '2026-08-08', hora: '07:00', leida: false, link: 'materiales.html' },
     { id: 'n-03', tipo: 'pendiente', titulo: '2 evidencias esperan revisión', detalle: 'EV-0005 y EV-0006 subidas desde campo requieren aprobación del supervisor.', fecha: '2026-08-08', hora: '08:30', leida: false, link: 'evidencias.html' },
@@ -312,12 +332,25 @@ window.CALC = {
 
   avanceActividad(a) {
     if (!a) return 0;
-    if (a.estado === 'completada') return 100;
+    if (a.estado === 'completada' || a.estado === 'en_revision') return 100;
     if (a.estado === 'cancelada' || a.estado === 'pendiente') return 0;
     if (a.checklist && a.checklist.length) {
       return Math.round(a.checklist.filter(i => i.ok).length / a.checklist.length * 100);
     }
     return a.estado === 'en_ejecucion' ? 50 : 0;
+  },
+
+  /* Validación de cierre: checklist completo + foto de antes y de después */
+  validarCierre(a) {
+    const faltantes = [];
+    if (a.checklist && a.checklist.length) {
+      const sin = a.checklist.filter(i => !i.ok).length;
+      if (sin) faltantes.push(`${sin} ítem(s) del checklist sin marcar`);
+    }
+    const evs = this.evidenciasDeActividad(a.id);
+    if (!evs.some(e => e.tipo === 'foto_antes')) faltantes.push('foto de ANTES del trabajo');
+    if (!evs.some(e => ['foto_despues', 'foto_avance'].includes(e.tipo))) faltantes.push('foto de DESPUÉS del trabajo');
+    return { ok: !faltantes.length, faltantes };
   },
   actividadesDeSitio(sid) { return D().actividades.filter(a => a.sitioId === sid); },
   avanceSitio(sid) {
@@ -367,11 +400,30 @@ window.CALC = {
     return D().actividades.find(a =>
       a.id !== excluirId &&
       a.fecha === fecha &&
-      !['cancelada', 'completada'].includes(a.estado) &&
+      !['cancelada', 'completada', 'en_revision'].includes(a.estado) &&
       a.tecnicos.includes(tecId) &&
       a.hIni < hFin && hIni < a.hFin
     ) || null;
   },
+
+  /* Pares de actividades cruzadas de un técnico en una fecha (timeline) */
+  crucesDeTecnico(tecId, fecha) {
+    const acts = this.actividadesDeTecnico(tecId, fecha)
+      .filter(a => !['cancelada', 'completada', 'en_revision'].includes(a.estado));
+    const ids = new Set();
+    for (let i = 0; i < acts.length; i++) {
+      for (let j = i + 1; j < acts.length; j++) {
+        if (acts[i].hIni < acts[j].hFin && acts[j].hIni < acts[i].hFin) {
+          ids.add(acts[i].id); ids.add(acts[j].id);
+        }
+      }
+    }
+    return ids;
+  },
+
+  /* Kardex */
+  movimientosDeMaterial(mid) { return D().movimientos.filter(m => m.materialId === mid); },
+  movimientosDeSitio(sid) { return D().movimientos.filter(m => m.sitioId === sid); },
 
   kpis() {
     const acts = D().actividades;
@@ -383,6 +435,7 @@ window.CALC = {
     return {
       actividadesHoy: hoy.length,
       enEjecucion: acts.filter(a => a.estado === 'en_ejecucion').length,
+      porAprobar: acts.filter(a => a.estado === 'en_revision').length,
       completadasSemana: acts.filter(a => a.estado === 'completada' && a.fecha >= '2026-08-03').length,
       retrasadas: acts.filter(a => a.estado === 'retrasada').length,
       pendientes: acts.filter(a => a.estado === 'pendiente').length,
@@ -405,7 +458,8 @@ let _histSeq = 100;
 let _notifSeq = 100;
 let _incSeq = 43;
 let _evSeq = 9;
-let _actSeq = 31;
+let _actSeq = 32;
+let _movSeq = 9;
 
 function logHistorial(usuario, accion, entidad, detalle) {
   const t = ahora();
@@ -437,10 +491,47 @@ window.ACCIONES = {
     tocar();
   },
 
+  /* Cierre desde campo: exige checklist completo + evidencia mínima.
+     Si pasa, la actividad queda EN REVISIÓN esperando al supervisor. */
+  finalizarActividad(id, usuario) {
+    const a = CALC.actividad(id); if (!a || !['en_ejecucion', 'retrasada', 'pendiente'].includes(a.estado)) return { ok: false, faltantes: ['la actividad no está en ejecución'] };
+    const v = CALC.validarCierre(a);
+    if (!v.ok) return v;
+    const t = ahora();
+    a.estado = 'en_revision'; a.finReal = t.hora;
+    if (!a.inicioReal) a.inicioReal = a.hIni;
+    const st = CALC.sitio(a.sitioId);
+    logHistorial(usuario, 'actividad_finalizada', id, `Cerró ${CALC.tipo(a.tipoId).nombre} en ${st.codigo}; pasa a revisión del supervisor`);
+    notificar('pendiente', 'Actividad por aprobar', `${id} · ${CALC.tipo(a.tipoId).nombre} en ${st.codigo}`, 'actividades.html');
+    tocar();
+    return { ok: true };
+  },
+
+  aprobarActividad(id, usuario) {
+    const a = CALC.actividad(id); if (!a || a.estado !== 'en_revision') return;
+    a.estado = 'completada';
+    const st = CALC.sitio(a.sitioId);
+    const pry = CALC.proyecto(a.proyectoId);
+    logHistorial(usuario, 'actividad_aprobada', id, `Aprobó ${id} en ${st.codigo} — avance de ${pry.codigo} recalculado a ${CALC.avanceProyecto(a.proyectoId)}%`);
+    notificar('completado', 'Actividad aprobada', `${id} · ${CALC.tipo(a.tipoId).nombre} en ${st.codigo}`, 'actividades.html');
+    tocar();
+  },
+
+  rechazarActividad(id, motivo, usuario) {
+    const a = CALC.actividad(id); if (!a || a.estado !== 'en_revision') return;
+    a.estado = 'en_ejecucion'; a.finReal = null;
+    a.obs = (a.obs ? a.obs + ' · ' : '') + `RECHAZO del supervisor: ${motivo || 'sin motivo indicado'}`;
+    const st = CALC.sitio(a.sitioId);
+    logHistorial(usuario, 'actividad_rechazada', id, `Rechazó el cierre de ${id} (${st.codigo}): ${motivo || 'sin motivo'}`);
+    notificar('critico', 'Cierre rechazado', `${id} · ${motivo || 'revisar observaciones'}`, 'actividades.html');
+    tocar();
+  },
+
+  /* Aprobación directa (atajo del administrador en el control diario) */
   completarActividad(id, usuario) {
     const a = CALC.actividad(id); if (!a || a.estado === 'completada') return;
     const t = ahora();
-    a.estado = 'completada'; a.finReal = t.hora;
+    a.estado = 'completada'; a.finReal = a.finReal || t.hora;
     if (!a.inicioReal) a.inicioReal = a.hIni;
     if (a.checklist) a.checklist.forEach(i => i.ok = true);
     const st = CALC.sitio(a.sitioId);
@@ -448,6 +539,34 @@ window.ACCIONES = {
     logHistorial(usuario, 'actividad_completada', id, `Completó ${CALC.tipo(a.tipoId).nombre} en ${st.codigo} — avance de ${pry.codigo} recalculado a ${CALC.avanceProyecto(a.proyectoId)}%`);
     notificar('completado', 'Actividad completada', `${id} · ${CALC.tipo(a.tipoId).nombre} en ${st.codigo}`, 'actividades.html');
     tocar();
+  },
+
+  /* Kardex: despacho descuenta stock y queda ligado a actividad/sitio */
+  despacharMaterial(materialId, cantidad, actividadId, usuario) {
+    const m = D().materiales.find(x => x.id === materialId); if (!m) return { ok: false, error: 'material no encontrado' };
+    cantidad = Math.max(1, Math.round(Number(cantidad) || 0));
+    if (cantidad > m.stock) return { ok: false, error: `stock insuficiente: quedan ${m.stock} ${m.unidad}` };
+    const a = CALC.actividad(actividadId);
+    const t = ahora();
+    m.stock -= cantidad;
+    D().movimientos.unshift({ id: 'mv-' + String(_movSeq++).padStart(2, '0'), materialId, tipo: 'despacho', cantidad, fecha: t.fecha, hora: t.hora, actividadId: a ? a.id : null, sitioId: a ? a.sitioId : null, usuario });
+    const destino = a ? `${a.id} (${CALC.sitio(a.sitioId).codigo})` : 'sin actividad';
+    logHistorial(usuario, 'material_despachado', materialId, `Despachó ${cantidad} ${m.unidad} de ${m.nombre} a ${destino}`);
+    if (m.stock === 0) notificar('critico', 'Material agotado', `${materialId} · ${m.nombre} quedó en cero tras el despacho.`, 'materiales.html');
+    else if (m.stock < m.minimo) notificar('pendiente', 'Material bajo mínimo', `${materialId} · quedan ${m.stock} ${m.unidad} (mínimo ${m.minimo}).`, 'materiales.html');
+    tocar();
+    return { ok: true };
+  },
+
+  ingresarMaterial(materialId, cantidad, usuario) {
+    const m = D().materiales.find(x => x.id === materialId); if (!m) return { ok: false };
+    cantidad = Math.max(1, Math.round(Number(cantidad) || 0));
+    const t = ahora();
+    m.stock += cantidad;
+    D().movimientos.unshift({ id: 'mv-' + String(_movSeq++).padStart(2, '0'), materialId, tipo: 'ingreso', cantidad, fecha: t.fecha, hora: t.hora, actividadId: null, sitioId: null, usuario });
+    logHistorial(usuario, 'material_ingresado', materialId, `Ingresó ${cantidad} ${m.unidad} de ${m.nombre} al almacén`);
+    tocar();
+    return { ok: true };
   },
 
   cancelarActividad(id, motivo, usuario) {

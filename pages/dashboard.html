@@ -10,9 +10,11 @@
 <script src="../js/tokens.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function dashboardPage() {
   return {
@@ -24,14 +26,14 @@ function dashboardPage() {
 
       UI.makeChart(this.$refs.chEstados, th => {
         const acts = Alpine.store('db').actividades;
-        const grupos = [['completada','Completadas'],['en_ejecucion','En ejecución'],['pendiente','Pendientes'],['retrasada','Retrasadas'],['cancelada','Canceladas']];
+        const grupos = [['completada','Completadas'],['en_revision','En revisión'],['en_ejecucion','En ejecución'],['pendiente','Pendientes'],['retrasada','Retrasadas'],['cancelada','Canceladas']];
         return {
           type: 'doughnut',
           data: {
             labels: grupos.map(g => g[1]),
             datasets: [{
               data: grupos.map(g => acts.filter(a => a.estado === g[0]).length),
-              backgroundColor: [th.estado.completado, th.estado.ejecucion, th.estado.pendiente, th.estado.critico, th.estado.cancelado],
+              backgroundColor: [th.estado.completado, th.series[1], th.estado.ejecucion, th.estado.pendiente, th.estado.critico, th.estado.cancelado],
               borderWidth: 2, borderColor: th.dark ? '#1e293b' : '#ffffff',
             }],
           },
@@ -93,14 +95,19 @@ function dashboardPage() {
         };
       });
     },
-    accionRapida(a) {
+    async accionRapida(a) {
       const u = Alpine.store('db').sesion.usuario;
       if (a.estado === 'pendiente' || a.estado === 'retrasada') {
-        ACCIONES.iniciarActividad(a.id, u);
+        await ACCIONES.iniciarActividad(a.id, u);
         Alpine.store('toasts').push('info', 'Actividad iniciada', `${a.id} · ${CALC.sitio(a.sitioId).codigo}`);
       } else if (a.estado === 'en_ejecucion') {
-        ACCIONES.completarActividad(a.id, u);
-        Alpine.store('toasts').push('ok', 'Actividad completada', `El avance del proyecto se recalculó a ${CALC.avanceProyecto(a.proyectoId)}%.`);
+        const r = await ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + (r.faltantes || []).join(' · '));
+        else Alpine.store('toasts').push('ok', 'Cierre enviado a revisión', `${a.id} espera aprobación del supervisor.`);
+      } else if (a.estado === 'en_revision') {
+        const pid = a.proyectoId;
+        await ACCIONES.aprobarActividad(a.id, u);
+        Alpine.store('toasts').push('ok', 'Cierre aprobado', `Avance del proyecto: ${CALC.avanceProyecto(pid)}%.`);
       }
     },
   };
@@ -127,7 +134,7 @@ function dashboardPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({
       icon:'dashboard', title:'Todavía no hay operación registrada',
       desc:'Cuando existan proyectos con actividades asignadas, este panel mostrará indicadores, gráficos y la actividad del día.',
-      action: UI.btn({label:'Crear primer proyecto', icon:'plus', attrs:`onclick=\"location.href='proyectos.html'\"`})
+      action: UI.btn({label:'Crear primer proyecto', icon:'plus', attrs:`onclick=&quot;location.href='proyectos.html'&quot;`})
     })"></div>
   </template>
 
@@ -135,7 +142,7 @@ function dashboardPage() {
   <template x-if="$store.ui.view==='error'">
     <div class="ui-card mt-8" x-html="UI.errorState({
       desc:'No se pudo consultar el servicio de indicadores (tiempo de espera agotado, 30 s). Los datos mostrados podrían estar desactualizados.',
-      retryAttr:`@click=\"$store.ui.setView('data')\"`
+      retryAttr:`@click=&quot;$store.ui.setView('data')&quot;`
     })"></div>
   </template>
 
@@ -152,7 +159,7 @@ function dashboardPage() {
       <div class="ui-card ui-kpi">
         <span class="kpi-label" x-html="UI.icon('zap',13)+'En ejecución'"></span>
         <span class="kpi-value" style="color:var(--st-ejecucion)" x-countup="CALC.kpis().enEjecucion">0</span>
-        <span class="kpi-delta">cuadrillas activas ahora</span>
+        <span class="kpi-delta"><span class="mono" x-text="CALC.kpis().porAprobar"></span>&nbsp;por aprobar</span>
       </div>
       <div class="ui-card ui-kpi">
         <span class="kpi-label" x-html="UI.icon('checkCircle',13)+'Completadas (semana)'"></span>
@@ -249,7 +256,9 @@ function dashboardPage() {
                   <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['pendiente','retrasada'].includes(a.estado)"
                     @click="accionRapida(a)" x-html="UI.icon('play',12)+' Iniciar'"></button>
                   <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'"
-                    @click="accionRapida(a)" x-html="UI.icon('check',12)+' Completar'"></button>
+                    @click="accionRapida(a)" x-html="UI.icon('check',12)+' Finalizar'"></button>
+                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_revision' && $store.ui.puede('aprobar')"
+                    @click="accionRapida(a)" x-html="UI.icon('check',12)+' Aprobar'"></button>
                   <a :href="$store.ui.href('actividades') + '&id=' + a.id" class="ui-btn ui-btn-ghost ui-btn-sm" x-tooltip="'Ver detalle'" aria-label="Ver detalle" x-html="UI.icon('eye',14)"></a>
                 </td>
               </tr>

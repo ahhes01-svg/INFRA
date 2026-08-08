@@ -7,21 +7,46 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function btsPage() {
   return {
     map: null,
     capa: null,
+    capaRuta: null,
+    vista: 'lista',            // lista | mapa
+    fEstadoM: '', fProyectoM: '', rutaTec: '',
     init() {
       this.$nextTick(() => { this.montarMapa(); });
       window.addEventListener('app:data', () => this.pintarMarcadores());
+      this.$watch('fEstadoM', () => this.pintarMarcadores());
+      this.$watch('fProyectoM', () => this.pintarMarcadores());
+      this.$watch('rutaTec', () => this.pintarRuta());
+    },
+    setVista(v) {
+      this.vista = v;
+      this.$nextTick(() => {
+        this.map && this.map.invalidateSize();
+        if (v === 'mapa') this.pintarMarcadores();
+        // Segundo ajuste tras el reflow del contenedor
+        setTimeout(() => this.map && this.map.invalidateSize(), 320);
+      });
+    },
+    sitiosFiltrados() {
+      return Alpine.store('db').sitios
+        .filter(s => !this.fEstadoM || s.estado === this.fEstadoM)
+        .filter(s => !this.fProyectoM || s.proyectoId === this.fProyectoM);
     },
     montarMapa() {
       if (!this.$refs.mapa || this.map) return;
@@ -29,14 +54,16 @@ function btsPage() {
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
       }).addTo(this.map);
-      this.capa = L.layerGroup().addTo(this.map);
+      // Clúster si el plugin cargó; grupo simple como respaldo
+      this.capa = (L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 44, showCoverageOnHover: false }) : L.layerGroup()).addTo(this.map);
+      this.capaRuta = L.layerGroup().addTo(this.map);
       this.pintarMarcadores();
     },
     pintarMarcadores() {
       if (!this.capa) return;
       this.capa.clearLayers();
       const colores = { operativo: 'completado', en_ejecucion: 'ejecucion', planificado: 'pendiente', alarma: 'critico' };
-      Alpine.store('db').sitios.forEach(s => {
+      this.sitiosFiltrados().forEach(s => {
         const k = colores[s.estado] || 'cancelado';
         const icon = L.divIcon({
           className: '',
@@ -52,6 +79,33 @@ function btsPage() {
                style="font-size:12px;color:#2563eb;font-weight:500">Ver ficha →</a></div>`)
           .addTo(this.capa);
       });
+    },
+    // Ruta del día de un técnico: sitios de sus actividades de hoy en orden horario
+    pintarRuta() {
+      if (!this.capaRuta) return;
+      this.capaRuta.clearLayers();
+      if (!this.rutaTec) return;
+      const acts = CALC.actividadesDeTecnico(this.rutaTec, window.HOY)
+        .filter(a => a.estado !== 'cancelada')
+        .sort((x, y) => x.hIni.localeCompare(y.hIni));
+      const puntos = acts.map(a => CALC.sitio(a.sitioId)).filter(s => s.lat);
+      if (!puntos.length) {
+        Alpine.store('toasts').push('info', 'Sin ruta para hoy', `${CALC.tecnico(this.rutaTec).nombre} no tiene actividades hoy.`);
+        return;
+      }
+      const coords = puntos.map(s => [s.lat, s.lng]);
+      L.polyline(coords, { color: '#2563eb', weight: 3, dashArray: '6 6', opacity: .85 }).addTo(this.capaRuta);
+      puntos.forEach((s, i) => {
+        L.marker([s.lat, s.lng], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="bts-pin" style="background:#2563eb;width:22px;height:22px;border-radius:999px">${i + 1}</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11],
+          }),
+          keyboard: false, interactive: false, zIndexOffset: 1000,
+        }).addTo(this.capaRuta);
+      });
+      this.map.fitBounds(L.latLngBounds(coords).pad(0.4));
     },
   };
 }
@@ -72,12 +126,36 @@ function btsPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'No hay sitios registrados', desc:'Importa o registra las estaciones base para verlas en el mapa y en el listado.', action: UI.btn({label:'Registrar sitio', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de georreferenciación no respondió. El listado puede mostrarse sin mapa.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de georreferenciación no respondió. El listado puede mostrarse sin mapa.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
 
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-3" aria-label="Resumen de sitios">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="seg" role="group" aria-label="Vista de sitios" style="display:flex">
+        <button :class="vista==='lista' && 'is-on'" @click="setVista('lista')" :aria-pressed="vista==='lista'">Lista + mapa</button>
+        <button :class="vista==='mapa' && 'is-on'" @click="setVista('mapa')" :aria-pressed="vista==='mapa'">Mapa completo</button>
+      </div>
+      <template x-if="vista==='mapa'">
+        <div class="flex flex-wrap items-center gap-2">
+          <select class="ui-select" style="width:150px" x-model="fEstadoM" aria-label="Filtrar mapa por estado">
+            <option value="">Todos los estados</option><option value="operativo">Operativo</option>
+            <option value="en_ejecucion">En ejecución</option><option value="planificado">Planificado</option><option value="alarma">En alarma</option>
+          </select>
+          <select class="ui-select" style="width:165px" x-model="fProyectoM" aria-label="Filtrar mapa por proyecto">
+            <option value="">Todos los proyectos</option>
+            <template x-for="p in $store.db.proyectos"><option :value="p.id" x-text="p.codigo"></option></template>
+          </select>
+          <select class="ui-select" style="width:195px" x-model="rutaTec" aria-label="Ruta del día de un técnico">
+            <option value="">Ruta del día: elegir técnico…</option>
+            <template x-for="t in $store.db.tecnicos.filter(t=>t.estado!=='inactivo')" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
+          </select>
+          <span class="text-xs text-ink-3 mono" x-text="sitiosFiltrados().length + ' sitios en el mapa'"></span>
+        </div>
+      </template>
+    </div>
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3" x-show="vista==='lista'" aria-label="Resumen de sitios">
       <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('tower',13)+'Sitios totales'"></span><span class="kpi-value" x-countup="$store.db.sitios.length">0</span></div>
       <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('checkCircle',13)+'Operativos'"></span><span class="kpi-value" style="color:var(--st-completado)" x-countup="$store.db.sitios.filter(s=>s.estado==='operativo').length">0</span></div>
       <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('zap',13)+'Con trabajos'"></span><span class="kpi-value" style="color:var(--st-ejecucion)" x-countup="$store.db.sitios.filter(s=>s.estado==='en_ejecucion').length">0</span></div>
@@ -85,7 +163,8 @@ function btsPage() {
     </section>
 
     <section class="ui-card p-0 overflow-hidden" aria-label="Mapa de sitios">
-      <div x-ref="mapa" style="height:340px" role="application" aria-label="Mapa OpenStreetMap con las estaciones base"></div>
+      <div x-ref="mapa" :style="vista==='mapa' ? 'height:calc(100vh - 280px);min-height:420px' : 'height:340px'"
+        role="application" aria-label="Mapa OpenStreetMap con las estaciones base"></div>
       <div class="flex flex-wrap gap-3 px-4 py-2.5 border-t border-line text-xs" aria-hidden="false">
         <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-completado)"></span>Operativo</span>
         <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-ejecucion)"></span>Con trabajos</span>
@@ -94,7 +173,8 @@ function btsPage() {
       </div>
     </section>
 
-    <section x-data="dataTable({ rows: () => $store.db.sitios.map(s => ({...s, proyecto: CALC.proyecto(s.proyectoId).codigo, avance: CALC.avanceSitio(s.id) ?? -1 })), sortKey: 'codigo', pageSize: 10, filters: { estado: '', proyecto: '' } })"
+    <section x-show="vista==='lista'"
+      x-data="dataTable({ rows: () => $store.db.sitios.map(s => ({...s, proyecto: CALC.proyecto(s.proyectoId).codigo, avance: CALC.avanceSitio(s.id) ?? -1 })), sortKey: 'codigo', pageSize: 10, filters: { estado: '', proyecto: '' } })"
       aria-label="Listado de sitios">
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <div class="relative">

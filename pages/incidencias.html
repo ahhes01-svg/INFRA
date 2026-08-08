@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function incidenciasPage() {
   return {
@@ -26,10 +28,11 @@ function incidenciasPage() {
         .filter(i => !this.fEstado || i.estado === this.fEstado)
         .filter(i => !this.q || (i.id + i.titulo + i.descripcion + CALC.sitio(i.sitioId).codigo).toLowerCase().includes(this.q.toLowerCase()));
     },
-    crear() {
+    async crear() {
       this.tocado = true;
       if (!this.form.titulo.trim() || this.form.titulo.trim().length < 8) return;
-      const id = ACCIONES.crearIncidencia(this.form, Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId);
+      const id = await ACCIONES.crearIncidencia(this.form, Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId);
+      if (!id) return;
       this.nuevo = false; this.tocado = false;
       this.form = { titulo: '', descripcion: '', severidad: 'media', sitioId: 'st-06', fechaLimite: '2026-08-15' };
       Alpine.store('toasts').push('ok', 'Incidencia registrada', `${id} — visible en dashboard, ficha del sitio y campana.`);
@@ -52,7 +55,7 @@ function incidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'checkCircle', title:'Sin incidencias reportadas', desc:'Buena señal: no hay hallazgos abiertos en ningún sitio. Las incidencias que reporte la cuadrilla aparecerán aquí.', action: UI.btn({label:'Registrar incidencia', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -104,9 +107,9 @@ function incidenciasPage() {
             </div>
             <div class="flex gap-2 flex-none">
               <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="i.estado==='abierta' && $store.ui.puede('campo')"
-                @click="ACCIONES.atenderIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('info','Incidencia en atención', i.id)">Atender</button>
+                @click="await ACCIONES.atenderIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('info','Incidencia en atención', i.id)">Atender</button>
               <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="['abierta','en_atencion'].includes(i.estado) && $store.ui.puede('aprobar')"
-                @click="ACCIONES.resolverIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('ok','Incidencia resuelta', i.id + ' — el estado del sitio se actualizó.')">Resolver</button>
+                @click="await ACCIONES.resolverIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('ok','Incidencia resuelta', i.id + ' — el estado del sitio se actualizó.')">Resolver</button>
             </div>
           </div>
         </article>

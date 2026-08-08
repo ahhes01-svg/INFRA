@@ -10,9 +10,11 @@
 <script src="../js/tokens.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function reportesPage() {
   return {
@@ -84,7 +86,7 @@ function reportesPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'chart', title:'Sin datos para reportar', desc:'Los reportes se generan a partir de actividades registradas. Aún no hay operación en el rango elegido.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

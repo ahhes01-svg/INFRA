@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-page="supervision" data-title="Supervisión en tiempo real" class="bg-surface-0">
 
@@ -27,7 +29,7 @@
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'shield', title:'Sin operación en curso', desc:'Cuando una cuadrilla inicie una actividad aparecerá aquí con su avance en tiempo real.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'Se perdió la conexión con el canal de eventos en tiempo real.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'Se perdió la conexión con el canal de eventos en tiempo real.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -72,6 +74,49 @@
         </template>
         <div class="ui-card" x-show="!$store.db.actividades.filter(a=>a.estado==='en_ejecucion').length"
           x-html="UI.emptyState({icon:'clock', title:'Ninguna cuadrilla en ejecución ahora', desc:'Las actividades pendientes de hoy aún no se han iniciado.'})"></div>
+
+        <!-- Cierres por aprobar -->
+        <h2 class="text-lg font-semibold pt-2">Cierres por aprobar
+          <span class="mono text-sm text-ink-3 font-normal" x-text="'(' + $store.db.actividades.filter(a=>a.estado==='en_revision').length + ')'"></span>
+        </h2>
+        <template x-for="a in $store.db.actividades.filter(a=>a.estado==='en_revision')" :key="a.id">
+          <article class="ui-card p-4" x-data="{ rej:false, motivo:'' }">
+            <div class="flex flex-wrap items-start gap-3">
+              <span style="color:var(--st-pendiente)" x-html="UI.icon('clock',18)"></span>
+              <div class="flex-1 min-w-[240px]">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="mono text-xs text-ink-3" x-text="a.id"></span>
+                  <span x-html="UI.badge('en_revision')"></span>
+                  <span class="mono text-xs text-ink-3" x-text="'cerrada ' + (a.finReal || '—') + ' del ' + UI.fmt.fecha(a.fecha)"></span>
+                </div>
+                <p class="font-semibold mt-1" x-text="CALC.tipo(a.tipoId).nombre + ' — ' + CALC.sitio(a.sitioId).codigo"></p>
+                <p class="text-xs text-ink-3 mt-1"
+                  x-text="CALC.evidenciasDeActividad(a.id).length + ' evidencia(s) adjunta(s)' + (CALC.evidenciasDeActividad(a.id).length ? '' : ' — revisar antes de aprobar')"></p>
+                <div x-show="rej" x-cloak class="mt-2">
+                  <textarea class="ui-textarea" x-model="motivo" placeholder="Motivo del rechazo (obligatorio)…"></textarea>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 flex-none">
+                <template x-if="!rej">
+                  <span class="flex gap-2">
+                    <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="rej=true">Rechazar</button>
+                    <button class="ui-btn ui-btn-primary ui-btn-sm"
+                      @click="await ACCIONES.aprobarActividad(a.id, $store.db.sesion.usuario); $store.toasts.push('ok','Cierre aprobado', a.id)">Aprobar</button>
+                  </span>
+                </template>
+                <template x-if="rej">
+                  <span class="flex gap-2">
+                    <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="rej=false">Cancelar</button>
+                    <button class="ui-btn ui-btn-danger ui-btn-sm"
+                      @click="if(motivo.trim().length<5){$store.toasts.push('error','Indica el motivo del rechazo');}else{await ACCIONES.rechazarActividad(a.id, motivo.trim(), $store.db.sesion.usuario); $store.toasts.push('warn','Cierre rechazado', a.id + ' vuelve a la cuadrilla');}">Confirmar</button>
+                  </span>
+                </template>
+              </div>
+            </div>
+          </article>
+        </template>
+        <div class="ui-card" x-show="!$store.db.actividades.filter(a=>a.estado==='en_revision').length"
+          x-html="UI.emptyState({icon:'checkCircle', title:'Nada por aprobar', desc:'Los cierres enviados por las cuadrillas aparecerán aquí para tu revisión.'})"></div>
 
         <!-- Riesgos -->
         <h2 class="text-lg font-semibold pt-2">Atención requerida</h2>

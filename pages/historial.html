@@ -9,16 +9,23 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function historialPage() {
   return {
     q: '', fAccion: '',
     acciones: [
       ['actividad_iniciada', 'Actividad iniciada', 'play', 'ejecucion'],
+      ['actividad_finalizada', 'Cierre enviado a revisión', 'clock', 'pendiente'],
+      ['actividad_aprobada', 'Cierre aprobado', 'checkCircle', 'completado'],
+      ['actividad_rechazada', 'Cierre rechazado', 'x', 'critico'],
       ['actividad_completada', 'Actividad completada', 'checkCircle', 'completado'],
+      ['material_despachado', 'Material despachado', 'box', 'ejecucion'],
+      ['material_ingresado', 'Ingreso a almacén', 'box', 'completado'],
       ['actividad_creada', 'Actividad programada', 'plus', 'ejecucion'],
       ['actividad_reprogramada', 'Reprogramación', 'calendar', 'pendiente'],
       ['actividad_retrasada', 'Retraso registrado', 'clock', 'critico'],
@@ -64,7 +71,7 @@ function historialPage() {
     <div class="ui-card mt-8 max-w-3xl" x-html="UI.emptyState({ icon:'history', title:'Historial vacío', desc:'Cada acción sobre actividades, incidencias y evidencias queda registrada aquí con fecha, hora y usuario.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo recuperar la bitácora de operaciones.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo recuperar la bitácora de operaciones.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="max-w-3xl space-y-4">

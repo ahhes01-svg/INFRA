@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function evidenciasPage() {
   return {
@@ -24,8 +26,8 @@ function evidenciasPage() {
     tipoLabel(t) {
       return { foto_antes: 'Foto — antes', foto_despues: 'Foto — después', foto_avance: 'Foto — avance', reporte: 'Reporte firmado' }[t] || t;
     },
-    aprobar(e) {
-      ACCIONES.aprobarEvidencia(e.id, Alpine.store('db').sesion.usuario);
+    async aprobar(e) {
+      await ACCIONES.aprobarEvidencia(e.id, Alpine.store('db').sesion.usuario);
       Alpine.store('toasts').push('ok', 'Evidencia aprobada', e.id);
     },
   };
@@ -50,7 +52,7 @@ function evidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'camera', title:'Aún no hay evidencias', desc:'Cuando la cuadrilla suba fotos y actas desde campo aparecerán en esta galería, agrupadas por actividad.', action: UI.btn({label:'Subir evidencia', icon:'upload'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

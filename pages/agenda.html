@@ -10,15 +10,19 @@
 <script src="../js/tokens.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function agendaPage() {
   return {
     cal: null,
     filtroTec: '',
     nuevo: false,
+    vista: 'calendario',       // calendario | cuadrillas
+    fechaTL: window.HOY,       // día visible del timeline
     conflicto: null, // {actividad, tecnico} cuando el formulario detecta cruce
     form: { tipoId: 'ta-10', sitioId: 'st-06', tecnicos: [], fecha: window.HOY, hIni: '08:00', hFin: '12:00' },
 
@@ -28,8 +32,32 @@ function agendaPage() {
       this.$watch('filtroTec', () => this.cal && this.cal.refetchEvents());
     },
 
+    /* ── Timeline de cuadrillas ── */
+    min(h) { return (+h.slice(0, 2)) * 60 + (+h.slice(3)); },
+    posTL(a) {
+      // Carril de 06:00 a 20:00 (840 min)
+      const ini = Math.max(this.min(a.hIni), 360), fin = Math.min(this.min(a.hFin), 1200);
+      return `left:${(ini - 360) / 840 * 100}%;width:${Math.max((fin - ini) / 840 * 100, 1.5)}%`;
+    },
+    actsTL(tecId) {
+      return CALC.actividadesDeTecnico(tecId, this.fechaTL).filter(a => a.estado !== 'cancelada');
+    },
+    crucesTL(tecId) { return CALC.crucesDeTecnico(tecId, this.fechaTL); },
+    get totalCrucesTL() {
+      return Alpine.store('db').tecnicos.reduce((s, t) => s + (this.crucesTL(t.id).size ? 1 : 0), 0);
+    },
+    moverDia(d) {
+      const f = new Date(this.fechaTL + 'T12:00:00');
+      f.setDate(f.getDate() + d);
+      this.fechaTL = f.toISOString().slice(0, 10);
+    },
+    setVista(v) {
+      this.vista = v;
+      if (v === 'calendario') this.$nextTick(() => this.cal && this.cal.updateSize());
+    },
+
     eventos() {
-      const K = { completada: 'completado', en_ejecucion: 'ejecucion', pendiente: 'pendiente', retrasada: 'critico', cancelada: 'cancelado' };
+      const K = { completada: 'completado', en_revision: 'pendiente', en_ejecucion: 'ejecucion', pendiente: 'pendiente', retrasada: 'critico', cancelada: 'cancelado' };
       let acts = Alpine.store('db').actividades;
       if (Alpine.store('ui').role === 'tecnico') acts = acts.filter(a => a.tecnicos.includes(Alpine.store('db').sesion.tecnicoDemoId));
       else if (this.filtroTec) acts = acts.filter(a => a.tecnicos.includes(this.filtroTec));
@@ -60,7 +88,7 @@ function agendaPage() {
         editable: true,
         eventDurationEditable: false,
         // Arrastre con guía de destino; rechazo visual si el horario se cruza
-        eventDrop: (info) => {
+        eventDrop: async (info) => {
           const id = info.event.id;
           const act = CALC.actividad(id);
           const f = info.event.start;
@@ -70,7 +98,7 @@ function agendaPage() {
           const soloFecha = info.view.type === 'dayGridMonth' || !info.event.end;
           const hIni = soloFecha ? act.hIni : `${p2(f.getHours())}:${p2(f.getMinutes())}`;
           const hFin = soloFecha ? act.hFin : `${p2(info.event.end.getHours())}:${p2(info.event.end.getMinutes())}`;
-          const r = ACCIONES.reprogramarActividad(id, fecha, hIni, hFin, Alpine.store('db').sesion.usuario);
+          const r = await ACCIONES.reprogramarActividad(id, fecha, hIni, hFin, Alpine.store('db').sesion.usuario);
           if (!r.ok) {
             info.revert();
             info.el.classList.add('ev-rechazo');
@@ -96,11 +124,11 @@ function agendaPage() {
       }
       return null;
     },
-    crear() {
+    async crear() {
       if (!this.form.tecnicos.length) { Alpine.store('toasts').push('error', 'Selecciona al menos un técnico'); return; }
       if (this.form.hFin <= this.form.hIni) { Alpine.store('toasts').push('error', 'El fin debe ser posterior al inicio'); return; }
       const sitio = CALC.sitio(this.form.sitioId);
-      const r = ACCIONES.crearActividad({ ...this.form, proyectoId: sitio.proyectoId, obs: '' }, Alpine.store('db').sesion.usuario);
+      const r = await ACCIONES.crearActividad({ ...this.form, proyectoId: sitio.proyectoId, obs: '' }, Alpine.store('db').sesion.usuario);
       if (!r.ok) {
         Alpine.store('toasts').push('warn', 'Cruce de horario', `${r.tecnico.nombre} ya tiene ${r.conflicto.id} en ese rango.`);
         return;
@@ -130,24 +158,77 @@ function agendaPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'calendar', title:'Agenda vacía', desc:'No hay actividades programadas en este rango. Programa la primera para verla en el calendario.', action: UI.btn({label:'Programar actividad', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo sincronizar la agenda con el servidor de planificación.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo sincronizar la agenda con el servidor de planificación.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="grid lg:grid-cols-4 gap-4 items-start">
 
-    <!-- Calendario -->
-    <section class="lg:col-span-3 ui-card p-4" aria-label="Calendario de actividades">
+    <!-- Calendario / Timeline de cuadrillas -->
+    <section class="lg:col-span-3 ui-card p-4" aria-label="Planificación de actividades">
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <p class="text-sm text-ink-2">Arrastra una actividad <span class="font-medium text-ink-1">pendiente o retrasada</span> para reprogramarla. Si el horario se cruza con otra de la misma cuadrilla, el cambio se rechaza.</p>
-        <select class="ui-select ml-auto" style="width:190px" x-model="filtroTec" x-show="$store.ui.role!=='tecnico'" aria-label="Filtrar por técnico">
+        <div class="seg" role="group" aria-label="Vista de agenda" style="display:flex">
+          <button :class="vista==='calendario' && 'is-on'" @click="setVista('calendario')" :aria-pressed="vista==='calendario'">Calendario</button>
+          <button :class="vista==='cuadrillas' && 'is-on'" @click="setVista('cuadrillas')" :aria-pressed="vista==='cuadrillas'">Cuadrillas</button>
+        </div>
+        <p class="text-sm text-ink-2" x-show="vista==='calendario'">Arrastra una actividad <span class="font-medium text-ink-1">pendiente o retrasada</span> para reprogramarla; los cruces de horario se rechazan.</p>
+        <p class="text-sm text-ink-2" x-show="vista==='cuadrillas'" x-cloak>Cada fila es un técnico, de 06:00 a 20:00. Los bloques con <span class="font-medium" style="color:var(--st-critico)">borde rojo punteado</span> se cruzan en horario.</p>
+        <select class="ui-select ml-auto" style="width:190px" x-model="filtroTec" x-show="$store.ui.role!=='tecnico' && vista==='calendario'" aria-label="Filtrar por técnico">
           <option value="">Toda la cuadrilla</option>
           <template x-for="t in $store.db.tecnicos" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
         </select>
-        <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')" @click="nuevo=true"
+        <button class="ui-btn ui-btn-primary ui-btn-md" :class="vista==='cuadrillas' && 'ml-auto'" x-show="$store.ui.puede('asignar')" @click="nuevo=true"
           x-html="UI.icon('plus',15)+' Programar'"></button>
       </div>
-      <div x-ref="cal"></div>
-      <div class="flex gap-3 mt-3 flex-wrap" x-html="['completada','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
+
+      <!-- Vista calendario -->
+      <div x-show="vista==='calendario'">
+        <div x-ref="cal"></div>
+        <div class="flex gap-3 mt-3 flex-wrap" x-html="['completada','en_revision','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
+      </div>
+
+      <!-- Vista timeline de cuadrillas -->
+      <div x-show="vista==='cuadrillas'" x-cloak>
+        <div class="flex items-center gap-2 mb-3">
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="moverDia(-1)" aria-label="Día anterior" x-html="UI.icon('chevronLeft',15)"></button>
+          <p class="font-semibold text-sm" x-text="UI.fmt.diaLargo(fechaTL)"></p>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="moverDia(1)" aria-label="Día siguiente" x-html="UI.icon('chevronRight',15)"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="fechaTL!==$store.ui.hoy" @click="fechaTL=$store.ui.hoy">Hoy</button>
+          <span class="ml-auto text-xs" x-show="totalCrucesTL"
+            :style="'color:var(--st-critico)'" x-html="UI.icon('alert',13) + ' ' + totalCrucesTL + ' técnico(s) con cruce de horario'"></span>
+        </div>
+        <div class="tl-wrap">
+          <div class="tl-grid">
+            <div class="tl-hours" aria-hidden="true">
+              <template x-for="h in [6,7,8,9,10,11,12,13,14,15,16,17,18,19]"><span x-text="String(h).padStart(2,'0')+':00'"></span></template>
+            </div>
+            <template x-for="t in $store.db.tecnicos.filter(t=>t.estado!=='inactivo')" :key="t.id">
+              <div class="tl-row">
+                <div class="tl-tec">
+                  <span x-html="UI.avatar(t, 32)"></span>
+                  <div style="min-width:0">
+                    <p class="text-sm font-medium truncate" x-text="t.nombre"></p>
+                    <p class="text-xs text-ink-3 truncate" x-text="t.rol"></p>
+                  </div>
+                </div>
+                <div class="tl-lane" role="list" :aria-label="'Actividades de ' + t.nombre">
+                  <template x-for="a in actsTL(t.id)" :key="a.id">
+                    <button class="tl-block" role="listitem"
+                      :class="crucesTL(t.id).has(a.id) && 'is-cruce'"
+                      :style="posTL(a) + `;background:var(--st-${UI.estadoInfo(a.estado).key}-bg);border-left-color:var(--st-${UI.estadoInfo(a.estado).key})`"
+                      x-tooltip="`${a.id} · ${CALC.tipo(a.tipoId).nombre} · ${a.hIni}–${a.hFin} · ${UI.estadoInfo(a.estado).label}` + (crucesTL(t.id).has(a.id) ? ' · ¡CRUCE DE HORARIO!' : '')"
+                      @click="location.href='actividades.html' + location.search.replace(/([?&])id=[^&]*&?/,'$1') + '&id=' + a.id"
+                      x-text="a.hIni + ' ' + CALC.sitio(a.sitioId).codigo"></button>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-3 flex-wrap items-center">
+          <span x-html="['completada','en_revision','en_ejecucion','pendiente','retrasada'].map(e=>UI.badge(e)).join(' ')" class="flex gap-2 flex-wrap"></span>
+          <span class="text-xs text-ink-3">— borde rojo punteado = cruce de horario</span>
+        </div>
+      </div>
     </section>
 
     <!-- Disponibilidad de técnicos -->
