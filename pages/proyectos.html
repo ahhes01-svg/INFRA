@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proyectos · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body data-page="proyectos" data-title="Proyectos" class="bg-surface-0">
+
+<main id="page" x-data="{ nuevo: false }">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" x-html="UI.skel.cards(3)"></div>
+  </template>
+
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({
+      icon:'folder', title:'No hay proyectos registrados',
+      desc:'Crea el primer proyecto para empezar a asignar sitios, técnicos y actividades.',
+      action: UI.btn({label:'Nuevo proyecto', icon:'plus'})
+    })"></div>
+  </template>
+
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({
+      desc:'El listado de proyectos no respondió (HTTP 502 del gateway).',
+      retryAttr:`@click=\"$store.ui.setView('data')\"`
+    })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <p class="text-sm text-ink-2">
+        <span class="font-semibold text-ink-1" x-text="$store.db.proyectos.length"></span> proyectos ·
+        <span x-text="$store.db.proyectos.filter(p=>p.estado==='en_ejecucion').length"></span> en ejecución ·
+        avance promedio <span class="mono font-semibold text-ink-1" x-text="CALC.kpis().avanceGlobal + '%'"></span>
+      </p>
+      <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('crear')" @click="nuevo=true"
+        x-html="UI.icon('plus',15)+' Nuevo proyecto'"></button>
+    </div>
+
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <template x-for="p in $store.db.proyectos" :key="p.id">
+        <article class="ui-card p-5 flex flex-col gap-3 hover:shadow-e2 tr-200">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="mono text-xs text-ink-3" x-text="p.codigo"></p>
+              <h2 class="font-semibold text-base leading-snug mt-0.5" x-text="p.nombre"></h2>
+            </div>
+            <span x-html="UI.badge(p.estado)"></span>
+          </div>
+          <p class="text-sm text-ink-2 line-clamp-2" x-text="p.descripcion"></p>
+          <dl class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+            <dt class="text-ink-3 text-xs uppercase font-semibold tracking-wide">Cliente</dt>
+            <dd class="text-right font-medium" x-text="CALC.cliente(p.clienteId).nombre"></dd>
+            <dt class="text-ink-3 text-xs uppercase font-semibold tracking-wide">BTS</dt>
+            <dd class="text-right mono" x-text="CALC.sitiosDeProyecto(p.id).length"></dd>
+            <dt class="text-ink-3 text-xs uppercase font-semibold tracking-wide">Actividades</dt>
+            <dd class="text-right mono" x-text="CALC.actividadesDeProyecto(p.id).length"></dd>
+            <dt class="text-ink-3 text-xs uppercase font-semibold tracking-wide">Plazo</dt>
+            <dd class="text-right mono text-xs" x-text="UI.fmt.fechaCorta(p.inicio) + ' → ' + UI.fmt.fechaCorta(p.fin)"></dd>
+          </dl>
+          <div x-html="UI.progress(CALC.avanceProyecto(p.id))"></div>
+          <div class="flex gap-2 mt-auto pt-1">
+            <a :href="$store.ui.href('proyecto-detalle') + '&id=' + p.id" class="ui-btn ui-btn-secondary ui-btn-md flex-1">Abrir proyecto</a>
+            <button class="ui-btn ui-btn-ghost ui-btn-md" x-show="$store.ui.puede('exportar')"
+              x-tooltip="'Exportar — no disponible en el prototipo'" @click="UI.protoNotice()" aria-label="Exportar" x-html="UI.icon('download',15)"></button>
+          </div>
+        </article>
+      </template>
+    </div>
+  </div>
+
+  <!-- Modal nuevo proyecto (simulado) -->
+  <template x-if="nuevo">
+    <div @keydown.escape.window="nuevo=false">
+      <div class="ui-backdrop" @click="nuevo=false" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="np-title">
+        <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="np-title">Nuevo proyecto</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="nuevo=false" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4" x-data="{ nombre: { v:'', t:false } }">
+            <div>
+              <label class="ui-label" for="np-nom">Nombre del proyecto *</label>
+              <input id="np-nom" class="ui-input" :class="nombre.t && !nombre.v.trim() && 'is-invalid'"
+                x-model="nombre.v" @blur="nombre.t=true" placeholder="Ej. Despliegue 5G — Chincha Norte" autofocus>
+              <p class="ui-error" x-show="nombre.t && !nombre.v.trim()" x-cloak>
+                <span x-html="UI.icon('alertCircle',12)"></span>El nombre es obligatorio</p>
+            </div>
+            <div>
+              <label class="ui-label" for="np-cli">Cliente</label>
+              <select id="np-cli" class="ui-select">
+                <template x-for="c in $store.db.clientes"><option x-text="c.nombre + ' — ' + c.razon"></option></template>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="ui-label" for="np-ini">Inicio</label><input id="np-ini" type="date" class="ui-input" value="2026-08-10"></div>
+              <div><label class="ui-label" for="np-fin">Fin</label><input id="np-fin" type="date" class="ui-input" value="2026-12-31"></div>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="nuevo=false">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" @click="nuevo=false; UI.protoNotice()">Crear proyecto</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>

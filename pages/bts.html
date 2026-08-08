@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTS / Sitios · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function btsPage() {
+  return {
+    map: null,
+    capa: null,
+    init() {
+      this.$nextTick(() => { this.montarMapa(); });
+      window.addEventListener('app:data', () => this.pintarMarcadores());
+    },
+    montarMapa() {
+      if (!this.$refs.mapa || this.map) return;
+      this.map = L.map(this.$refs.mapa, { scrollWheelZoom: false }).setView([-14.3, -75.6], 8);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(this.map);
+      this.capa = L.layerGroup().addTo(this.map);
+      this.pintarMarcadores();
+    },
+    pintarMarcadores() {
+      if (!this.capa) return;
+      this.capa.clearLayers();
+      const colores = { operativo: 'completado', en_ejecucion: 'ejecucion', planificado: 'pendiente', alarma: 'critico' };
+      Alpine.store('db').sitios.forEach(s => {
+        const k = colores[s.estado] || 'cancelado';
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="bts-pin" style="background:var(--st-${k})">${s.tecnologias.includes('5G') ? '5G' : s.tecnologias.includes('4G') ? '4G' : '3G'}</div>`,
+          iconSize: [26, 26], iconAnchor: [13, 13],
+        });
+        L.marker([s.lat, s.lng], { icon, keyboard: false })
+          .bindPopup(`<div style="min-width:190px">
+            <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3)">${s.codigo}</p>
+            <p style="font-weight:600;font-size:13px;margin:2px 0">${s.nombre}</p>
+            <p style="font-size:11px;color:var(--ink2)">${s.distrito} · ${s.tipo} · ${UI.estadoInfo(s.estado).label}</p>
+            <a href="bts-detalle.html?id=${s.id}&role=${Alpine.store('ui').role}&theme=${Alpine.store('ui').theme}"
+               style="font-size:12px;color:#2563eb;font-weight:500">Ver ficha →</a></div>`)
+          .addTo(this.capa);
+      });
+    },
+  };
+}
+</script>
+</head>
+<body data-page="bts" data-title="BTS / Sitios" class="bg-surface-0">
+
+<main id="page" x-data="btsPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3" x-html="UI.skel.kpis(4)"></div>
+      <div class="ui-card p-0"><div class="ui-skel" style="height:320px;border-radius:8px"></div></div>
+      <div x-html="UI.skel.table(8,6)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'No hay sitios registrados', desc:'Importa o registra las estaciones base para verlas en el mapa y en el listado.', action: UI.btn({label:'Registrar sitio', icon:'plus'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de georreferenciación no respondió. El listado puede mostrarse sin mapa.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3" aria-label="Resumen de sitios">
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('tower',13)+'Sitios totales'"></span><span class="kpi-value" x-countup="$store.db.sitios.length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('checkCircle',13)+'Operativos'"></span><span class="kpi-value" style="color:var(--st-completado)" x-countup="$store.db.sitios.filter(s=>s.estado==='operativo').length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('zap',13)+'Con trabajos'"></span><span class="kpi-value" style="color:var(--st-ejecucion)" x-countup="$store.db.sitios.filter(s=>s.estado==='en_ejecucion').length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('alert',13)+'En alarma'"></span><span class="kpi-value" style="color:var(--st-critico)" x-countup="$store.db.sitios.filter(s=>s.estado==='alarma').length">0</span></div>
+    </section>
+
+    <section class="ui-card p-0 overflow-hidden" aria-label="Mapa de sitios">
+      <div x-ref="mapa" style="height:340px" role="application" aria-label="Mapa OpenStreetMap con las estaciones base"></div>
+      <div class="flex flex-wrap gap-3 px-4 py-2.5 border-t border-line text-xs" aria-hidden="false">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-completado)"></span>Operativo</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-ejecucion)"></span>Con trabajos</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-pendiente)"></span>Planificado</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded" style="background:var(--st-critico)"></span>En alarma</span>
+      </div>
+    </section>
+
+    <section x-data="dataTable({ rows: () => $store.db.sitios.map(s => ({...s, proyecto: CALC.proyecto(s.proyectoId).codigo, avance: CALC.avanceSitio(s.id) ?? -1 })), sortKey: 'codigo', pageSize: 10, filters: { estado: '', proyecto: '' } })"
+      aria-label="Listado de sitios">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <div class="relative">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+          <input type="search" class="ui-input pl-8" style="width:240px" placeholder="Código, distrito, dirección…" x-model="q" aria-label="Buscar sitio">
+        </div>
+        <select class="ui-select" style="width:150px" x-model="filters.estado" aria-label="Estado">
+          <option value="">Todos los estados</option><option value="operativo">Operativo</option>
+          <option value="en_ejecucion">En ejecución</option><option value="planificado">Planificado</option><option value="alarma">En alarma</option>
+        </select>
+        <select class="ui-select" style="width:170px" x-model="filters.proyecto" aria-label="Proyecto">
+          <option value="">Todos los proyectos</option>
+          <template x-for="p in $store.db.proyectos"><option :value="p.codigo" x-text="p.codigo"></option></template>
+        </select>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="resetFilters()">Limpiar</button>
+        <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" x-show="$store.ui.puede('crear')" @click="UI.protoNotice()"
+          x-html="UI.icon('plus',15)+' Registrar sitio'"></button>
+      </div>
+
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Sitios">
+          <thead><tr>
+            <th class="col-sticky sortable" @click="sortBy('codigo')">Código <span x-text="sortIcon('codigo')"></span></th>
+            <th>Nombre</th>
+            <th class="sortable" @click="sortBy('distrito')">Distrito <span x-text="sortIcon('distrito')"></span></th>
+            <th>Coordenadas</th><th>Tipo</th><th class="sortable" @click="sortBy('proyecto')">Proyecto <span x-text="sortIcon('proyecto')"></span></th>
+            <th>Tecnol.</th><th class="sortable" @click="sortBy('estado')">Estado <span x-text="sortIcon('estado')"></span></th>
+            <th class="sortable" @click="sortBy('avance')">Avance <span x-text="sortIcon('avance')"></span></th>
+          </tr></thead>
+          <tbody>
+            <template x-for="s in paged" :key="s.id">
+              <tr>
+                <td class="col-sticky"><a :href="$store.ui.href('bts-detalle') + '&id=' + s.id" class="mono text-xs text-brand-600 dark:text-brand-400 hover:underline whitespace-nowrap" x-text="s.codigo"></a></td>
+                <td class="max-w-[240px]"><p class="truncate" :title="s.nombre" x-text="s.nombre"></p></td>
+                <td x-text="s.distrito"></td>
+                <td class="mono text-xs whitespace-nowrap" x-text="UI.fmt.coord(s.lat) + ', ' + UI.fmt.coord(s.lng)"></td>
+                <td class="text-xs" x-text="s.tipo"></td>
+                <td class="mono text-xs" x-text="s.proyecto"></td>
+                <td class="text-xs mono" x-text="s.tecnologias.join('/')"></td>
+                <td x-html="UI.badge(s.estado)"></td>
+                <td><span x-show="s.avance >= 0" x-html="UI.progress(Math.max(0,s.avance))"></span><span x-show="s.avance < 0" class="text-xs text-ink-3">—</span></td>
+              </tr>
+            </template>
+            <tr x-show="!filtered.length"><td colspan="9" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún sitio coincide con los filtros.'})"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between mt-2 text-xs">
+        <span class="mono text-ink-2" x-text="rangeLabel"></span>
+        <div class="flex gap-1">
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
+          <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

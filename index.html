@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ingresar · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/tokens.js"></script>
+<script src="js/components.js"></script>
+<script src="js/data.js"></script>
+<script defer src="js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function loginPage() {
+  return {
+    usuario: '', clave: '', rol: 'admin', cargando: false, touched: { u: false, c: false },
+    get errU() { return this.touched.u && !this.usuario.trim() ? 'Ingresa tu usuario corporativo' : ''; },
+    get errC() { return this.touched.c && this.clave.length < 4 ? 'La contraseña debe tener al menos 4 caracteres' : ''; },
+    ingresar() {
+      this.touched = { u: true, c: true };
+      if (this.errU || this.errC) return;
+      this.cargando = true;
+      // Simulación de autenticación: no hay backend en el prototipo
+      setTimeout(() => {
+        location.href = (this.rol === 'tecnico' ? 'pages/mi-jornada.html' : 'pages/dashboard.html') + '?role=' + this.rol + '&theme=light';
+      }, 700);
+    },
+  };
+}
+</script>
+</head>
+<body data-layout="bare" class="bg-surface-0 min-h-screen flex flex-col" x-data="loginPage()">
+
+<main class="flex-1 flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+    <div class="flex items-center justify-center gap-3 mb-6">
+      <span class="text-brand-600 dark:text-brand-400" x-html="UI.icon('tower', 34)"></span>
+      <div>
+        <p class="text-xl font-bold tracking-tight leading-none">NettOps</p>
+        <p class="text-xs text-ink-3 mono mt-1">Gestión de operaciones BTS · Perú</p>
+      </div>
+    </div>
+
+    <form class="ui-card p-6 space-y-4 shadow-e2" @submit.prevent="ingresar()">
+      <div>
+        <label class="ui-label" for="lg-user">Usuario</label>
+        <input id="lg-user" class="ui-input" :class="errU && 'is-invalid'" placeholder="nombre.apellido"
+          x-model="usuario" @blur="touched.u=true" autocomplete="username" :aria-invalid="!!errU">
+        <p class="ui-error" x-show="errU" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errU"></span></p>
+      </div>
+      <div>
+        <label class="ui-label" for="lg-pass">Contraseña</label>
+        <input id="lg-pass" type="password" class="ui-input" :class="errC && 'is-invalid'" placeholder="••••••••"
+          x-model="clave" @blur="touched.c=true" autocomplete="current-password" :aria-invalid="!!errC">
+        <p class="ui-error" x-show="errC" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errC"></span></p>
+      </div>
+      <div>
+        <label class="ui-label" for="lg-rol">Ingresar como</label>
+        <select id="lg-rol" class="ui-select" x-model="rol">
+          <option value="admin">Administrador</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="tecnico">Técnico de campo</option>
+        </select>
+        <p class="ui-help">El rol determina los módulos y acciones disponibles.</p>
+      </div>
+      <button type="submit" class="ui-btn ui-btn-primary ui-btn-lg w-full" :data-loading="cargando ? 1 : 0">
+        <span class="spin" aria-hidden="true"></span>
+        <span x-text="cargando ? 'Verificando…' : 'Ingresar'"></span>
+      </button>
+      <p class="text-xs text-ink-3 text-center">Acceso simulado — cualquier usuario y contraseña de 4+ caracteres funciona.</p>
+    </form>
+
+    <div class="flex items-center justify-center gap-4 mt-5 text-xs text-ink-3">
+      <a href="pages/design-system.html" class="hover:text-ink-1 tr-150 flex items-center gap-1.5" x-html="UI.icon('grid',12) + ' Sistema de diseño'"></a>
+      <span aria-hidden="true">·</span>
+      <span class="mono">Prototipo v1.0 — sin backend</span>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

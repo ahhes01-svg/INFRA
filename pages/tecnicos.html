@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Técnicos · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body data-page="tecnicos" data-title="Técnicos" class="bg-surface-0">
+
+<main id="page" x-data="{ filtro: '', estado: '', sel: null }">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3" x-html="UI.skel.cards(6)"></div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'users', title:'No hay técnicos registrados', desc:'Registra a tu personal de campo para poder asignar actividades.', action: UI.btn({label:'Registrar técnico', icon:'plus'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la planilla de técnicos.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="Nombre, rol, especialidad…" x-model="filtro" aria-label="Buscar técnico">
+      </div>
+      <select class="ui-select" style="width:150px" x-model="estado" aria-label="Filtrar por estado">
+        <option value="">Todos</option><option value="en_campo">En campo</option><option value="disponible">Disponible</option>
+        <option value="descanso">Descanso</option><option value="inactivo">Inactivo</option>
+      </select>
+      <p class="text-sm text-ink-2 ml-auto">
+        <span class="font-semibold text-ink-1" x-text="$store.db.tecnicos.filter(t=>t.estado==='en_campo').length"></span> en campo ·
+        <span x-text="$store.db.tecnicos.filter(t=>t.estado==='disponible').length"></span> disponibles
+      </p>
+      <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('crear')" @click="UI.protoNotice()" x-html="UI.icon('plus',15)+' Registrar técnico'"></button>
+    </div>
+
+    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      <template x-for="t in $store.db.tecnicos.filter(t => (!estado || t.estado===estado) && (!filtro || (t.nombre+t.rol+t.especialidad).toLowerCase().includes(filtro.toLowerCase())))" :key="t.id">
+        <article class="ui-card p-4 hover:shadow-e2 tr-200">
+          <div class="flex items-start gap-3">
+            <span x-html="UI.avatar(t, 40)"></span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold truncate" x-text="t.nombre"></p>
+              <p class="text-xs text-ink-3" x-text="t.rol + ' · ' + t.especialidad"></p>
+              <p class="mono text-xs text-ink-2 mt-1 flex items-center gap-1.5" x-html="UI.icon('phone',11) + ' ' + t.telefono"></p>
+            </div>
+            <span x-html="UI.badge(t.estado)"></span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-3">
+            <template x-for="c in t.certificaciones"><span class="text-xs bg-surface-2 border border-line rounded px-1.5 py-0.5 text-ink-2" x-text="c"></span></template>
+          </div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-line text-xs text-ink-2">
+            <span><span class="mono font-semibold text-ink-1" x-text="CALC.actividadesDeTecnico(t.id).filter(a=>['pendiente','en_ejecucion','retrasada'].includes(a.estado)).length"></span> actividades activas · zona <span x-text="t.zona"></span></span>
+            <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="sel = t.id">Ver agenda</button>
+          </div>
+        </article>
+      </template>
+    </div>
+  </div>
+
+  <!-- Drawer: agenda del técnico -->
+  <template x-if="sel">
+    <div @keydown.escape.window="sel=null">
+      <div class="ui-backdrop" @click="sel=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <aside class="ui-drawer" x-transition:enter="slide-enter" x-transition:enter-start="slide-enter-start" role="dialog" aria-modal="true" aria-label="Agenda del técnico">
+        <div class="ui-drawer-head">
+          <div class="flex items-center gap-3">
+            <span x-html="UI.avatar(CALC.tecnico(sel), 40)"></span>
+            <div>
+              <p class="font-semibold" x-text="CALC.tecnico(sel).nombre"></p>
+              <p class="text-xs text-ink-3" x-text="CALC.tecnico(sel).rol + ' · DNI ' + CALC.tecnico(sel).dni"></p>
+            </div>
+          </div>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="sel=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+        </div>
+        <div class="ui-drawer-body space-y-4">
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-ink-3 mb-2">Hoy · <span class="mono" x-text="$store.ui.hoy"></span></h3>
+            <template x-for="a in CALC.actividadesDeTecnico(sel, $store.ui.hoy)" :key="a.id">
+              <div class="border border-line rounded-md p-3 mb-2">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="mono text-xs" x-text="a.hIni + '–' + a.hFin"></span>
+                  <span x-html="UI.badge(a.estado)"></span>
+                </div>
+                <p class="text-sm font-medium mt-1" x-text="CALC.tipo(a.tipoId).nombre"></p>
+                <p class="mono text-xs text-ink-3" x-text="CALC.sitio(a.sitioId).codigo"></p>
+              </div>
+            </template>
+            <p class="text-sm text-ink-3" x-show="!CALC.actividadesDeTecnico(sel, $store.ui.hoy).length">Sin actividades hoy.</p>
+          </div>
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-ink-3 mb-2">Próximas</h3>
+            <template x-for="a in CALC.actividadesDeTecnico(sel).filter(a => a.fecha > $store.ui.hoy).slice(0,5)" :key="a.id">
+              <div class="flex items-center justify-between gap-2 py-2 border-b border-line text-sm">
+                <span class="mono text-xs" x-text="UI.fmt.fecha(a.fecha) + ' ' + a.hIni"></span>
+                <span class="flex-1 truncate px-2" x-text="CALC.tipo(a.tipoId).nombre"></span>
+                <span class="mono text-xs text-ink-3" x-text="CALC.sitio(a.sitioId).codigo"></span>
+              </div>
+            </template>
+            <p class="text-sm text-ink-3" x-show="!CALC.actividadesDeTecnico(sel).filter(a => a.fecha > $store.ui.hoy).length">Nada programado.</p>
+          </div>
+        </div>
+        <div class="ui-drawer-foot">
+          <button class="ui-btn ui-btn-secondary ui-btn-md" @click="sel=null">Cerrar</button>
+          <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')" onclick="location.href='agenda.html'+location.search">Asignar actividad</button>
+        </div>
+      </aside>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>
