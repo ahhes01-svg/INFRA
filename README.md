@@ -17,7 +17,15 @@ Funciona en dos modos:
 
 ## Cómo ejecutarlo
 
-No hay build ni npm. Solo archivos estáticos:
+No hay compilación. Puedes usar el servidor Node incluido:
+
+```bash
+npm run check
+npm run serve
+# → http://127.0.0.1:8000
+```
+
+O servir los mismos archivos con Python:
 
 ```bash
 python3 -m http.server 8000
@@ -39,8 +47,12 @@ Los scripts están en `supabase/`, en orden. Se ejecutan en
 | `02-seed.sql` | Datos demo peruanos | Una vez (opcional) |
 | `03-storage.sql` | Bucket `evidencias` y sus políticas | Una vez |
 | `04-usuarios.sql` | Asigna rol y técnico a cada cuenta | Tras crear usuarios |
+| `05-gestion.sql` | Gestión segura de cuentas, técnicos, sitios y materiales | Después de `01-schema.sql` |
 
-Los cuatro son **idempotentes**: pueden re-ejecutarse sin duplicar datos.
+Los cinco son **idempotentes**: pueden re-ejecutarse sin duplicar datos. En una
+instalación nueva ejecuta `01`, `05`, `02` (opcional) y `03`; después crea las
+cuentas en Auth y termina con `04`. Consulta [DEPLOYMENT.md](DEPLOYMENT.md)
+antes de publicar.
 
 Luego, en `js/config.js`, pon la URL del proyecto y la llave `anon`. Esa llave
 está diseñada para vivir en el navegador; el acceso real lo gobiernan las
@@ -54,8 +66,10 @@ saltarse manipulando el JavaScript:
 - Cerrar una actividad exige checklist completo y fotos de antes/después.
 - Solo un supervisor o administrador aprueba o rechaza un cierre.
 - Un técnico solo ve y toca las actividades de su cuadrilla.
+- Una cuenta técnica sin vincular no puede consultar datos operativos.
 - Un despacho de material no puede dejar el stock en negativo.
 - No se puede programar a un técnico con el horario cruzado.
+- Las fotografías viven en un bucket privado y usan enlaces temporales.
 
 ## Stack
 
@@ -76,6 +90,8 @@ js/config.js                URL y llave del backend
 js/api.js                   cliente Supabase: sesión, carga y mutaciones
 js/layout.js                sidebar, navbar, roles, tema, toasts, arranque
 supabase/*.sql              esquema, datos, almacenamiento y usuarios
+DEPLOYMENT.md               procedimiento mínimo de publicación y reversión
+scripts/*.mjs               servidor local y validación previa al despliegue
 ```
 
 Orden de construcción respetado: tokens → componentes → design system →
@@ -126,5 +142,6 @@ conectar el backend no obligó a reescribir ningún módulo.
 
 ## Fuera de alcance (a propósito)
 
-Base de datos, autenticación real, subida real de archivos y exportación a
-PDF/Excel. Esos botones existen y avisan "no disponible en el prototipo".
+Exportación real a PDF/Excel y trabajo offline con cola de sincronización. La
+aplicación no afirma guardar cambios sin red: hay que recuperar la conexión
+antes de registrar una operación.

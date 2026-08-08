@@ -5,11 +5,22 @@
  * Contexto: operaciones de instalación y mantenimiento de BTS en la región
  * Ica (Ica, Pisco, Chincha, Nazca). Coordenadas GPS reales.
  *
- * La fecha "hoy" del demo es fija (2026-08-08) para que la agenda, el control
- * diario y "Mi jornada" siempre tengan datos coherentes.
+ * El demo usa una fecha fija para conservar datos coherentes. En modo conectado
+ * se calcula la fecha real de Perú, independientemente de la zona del equipo.
  * ==========================================================================*/
 
-window.HOY = '2026-08-08'; // sábado 08 de agosto de 2026
+function fechaActualPeru() {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const valor = tipo => partes.find(p => p.type === tipo)?.value;
+  return `${valor('year')}-${valor('month')}-${valor('day')}`;
+}
+
+const configFecha = window.CONFIG || {};
+window.HOY = (configFecha.forzarDemo || !configFecha.url)
+  ? (configFecha.fechaDemo || '2026-08-08')
+  : fechaActualPeru();
 
 window.DB = {
 

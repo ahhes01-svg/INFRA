@@ -3,33 +3,40 @@
 -- Ejecutar DESPUÉS de crear el bucket 'evidencias' en Storage.
 -- (Supabase → SQL Editor → New query → pegar → Run)
 --
--- El bucket se crea PÚBLICO en lectura para que las miniaturas carguen sin
--- firmar cada URL. Si prefieres privacidad total, marca el bucket como privado
--- y cambia js/api.js para usar createSignedUrl() en lugar de getPublicUrl().
+-- El bucket es privado. js/api.js genera URLs firmadas de corta duración.
 -- ============================================================================
 
 -- Crea el bucket si aún no existe (equivale a hacerlo desde la interfaz)
 insert into storage.buckets (id, name, public)
-values ('evidencias', 'evidencias', true)
-on conflict (id) do update set public = true;
+values ('evidencias', 'evidencias', false)
+on conflict (id) do update set public = false;
 
 -- Limpieza para poder re-ejecutar
 drop policy if exists ev_lectura   on storage.objects;
 drop policy if exists ev_subida    on storage.objects;
 drop policy if exists ev_borrado   on storage.objects;
 
--- Cualquiera con el enlace puede ver la foto (bucket público)
+-- Solo usuarios autenticados pueden solicitar una URL firmada.
 create policy ev_lectura on storage.objects
-  for select using (bucket_id = 'evidencias');
+  for select to authenticated using (
+    bucket_id = 'evidencias'
+    and (es_gestor() or es_mi_actividad((storage.foldername(name))[1]))
+  );
 
--- Solo usuarios autenticados suben, y únicamente a este bucket
+-- La primera carpeta debe ser una actividad gestionada o asignada al usuario.
 create policy ev_subida on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'evidencias');
+  with check (
+    bucket_id = 'evidencias'
+    and (es_gestor() or es_mi_actividad((storage.foldername(name))[1]))
+  );
 
 -- Solo los gestores pueden borrar evidencias
 create policy ev_borrado on storage.objects
   for delete to authenticated
-  using (bucket_id = 'evidencias' and es_gestor());
+  using (
+    bucket_id = 'evidencias'
+    and (es_gestor() or es_mi_actividad((storage.foldername(name))[1]))
+  );
 
 select 'Bucket evidencias listo' as estado;

@@ -25,6 +25,9 @@ function loginPage() {
     async init() {
       const estado = await API.iniciar();
       this.demo = estado.modoDemo;
+      if (estado.error && !this.demo) {
+        this.errorServidor = 'No se pudo conectar con el servicio. Verifica tu red e intenta nuevamente.';
+      }
       this.listo = true;
       // Sesión ya activa: entra directo
       if (!this.demo && API.sesionActiva()) this.entrar_al_sistema();

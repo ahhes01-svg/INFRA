@@ -1,0 +1,15 @@
+# Configuración local y herramientas
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+# Dependencias y salidas futuras
+node_modules/
+dist/
+coverage/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

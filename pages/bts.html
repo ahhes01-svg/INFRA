@@ -20,19 +20,85 @@
 <script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
 <script>
+const TIPOS_SITIO = ['Greenfield', 'Rooftop', 'Monoposte', 'Torre autosoportada', 'Camuflado (palmera)', 'Camuflado (chimenea)'];
+const TECNOLOGIAS = ['2G', '3G', '4G', '5G'];
+
 function btsPage() {
+  const vacio = () => ({
+    id: null, codigo: '', nombre: '', direccion: '', distrito: '', provincia: 'Ica',
+    lat: '', lng: '', tipo: 'Greenfield', altura: 30, tecnologias: ['4G'],
+    energia: 'Red comercial', proyectoId: '', estado: 'planificado',
+  });
   return {
     map: null,
     capa: null,
     capaRuta: null,
     vista: 'lista',            // lista | mapa
     fEstadoM: '', fProyectoM: '', rutaTec: '',
+    form: null,                // sitio en edición (null = modal cerrado)
+    guardando: false, tocado: false,
+    borrando: null,
+    TIPOS_SITIO, TECNOLOGIAS,
+
     init() {
       this.$nextTick(() => { this.montarMapa(); });
       window.addEventListener('app:data', () => this.pintarMarcadores());
       this.$watch('fEstadoM', () => this.pintarMarcadores());
       this.$watch('fProyectoM', () => this.pintarMarcadores());
       this.$watch('rutaTec', () => this.pintarRuta());
+    },
+
+    /* ── Alta y edición de sitios ── */
+    nuevoSitio() {
+      this.form = vacio();
+      this.form.proyectoId = Alpine.store('db').proyectos[0]?.id || '';
+      this.tocado = false;
+    },
+    editarSitio(s) { this.form = { ...s, tecnologias: [...(s.tecnologias || [])] }; this.tocado = false; },
+    get errCodigo() {
+      if (!this.tocado) return '';
+      const c = (this.form.codigo || '').trim().toUpperCase();
+      if (!c) return 'El código del sitio es obligatorio';
+      if (!/^[A-Z]{2}-[A-Z0-9]+-[0-9]{3,4}$/.test(c)) return 'Formato de operador: REGIÓN-DISTRITO-NNNN (ej. IC-PISCO-0342)';
+      const dup = Alpine.store('db').sitios.find(s => s.codigo === c && s.id !== this.form.id);
+      return dup ? 'Ya existe un sitio con ese código' : '';
+    },
+    get errNombre() {
+      if (!this.tocado) return '';
+      return (this.form.nombre || '').trim().length < 3 ? 'El nombre del sitio es obligatorio' : '';
+    },
+    get errCoords() {
+      if (!this.tocado) return '';
+      const la = Number(this.form.lat), ln = Number(this.form.lng);
+      if (!this.form.lat || !this.form.lng || isNaN(la) || isNaN(ln)) return 'Indica latitud y longitud';
+      if (la < -19 || la > 0 || ln < -82 || ln > -68) return 'Esas coordenadas no caen en Perú (lat −19 a 0, lng −82 a −68)';
+      return '';
+    },
+    // Pegar "-13.71030, -76.20320" desde Google Maps rellena ambos campos
+    pegarCoords(ev) {
+      const txt = (ev.clipboardData || window.clipboardData).getData('text') || '';
+      const m = txt.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+      if (m) { ev.preventDefault(); this.form.lat = m[1]; this.form.lng = m[2]; this.tocado = true; }
+    },
+    async guardarSitio() {
+      this.tocado = true;
+      if (this.errCodigo || this.errNombre || this.errCoords) return;
+      this.guardando = true;
+      const r = await ACCIONES.guardarSitio({ ...this.form, codigo: this.form.codigo.trim().toUpperCase() });
+      this.guardando = false;
+      if (!r.ok) { Alpine.store('toasts').push('error', 'No se pudo guardar', r.error); return; }
+      Alpine.store('toasts').push('ok', r.creado ? 'Sitio registrado' : 'Ficha actualizada',
+        this.form.codigo.toUpperCase());
+      this.form = null;
+      this.pintarMarcadores();
+    },
+    async confirmarBorrado() {
+      const s = this.borrando;
+      const r = await ACCIONES.eliminarSitio(s.id);
+      if (!r.ok) { Alpine.store('toasts').push('error', 'No se puede eliminar', r.error); this.borrando = null; return; }
+      Alpine.store('toasts').push('ok', 'Sitio eliminado', s.codigo);
+      this.borrando = null;
+      this.pintarMarcadores();
     },
     setVista(v) {
       this.vista = v;
@@ -72,10 +138,10 @@ function btsPage() {
         });
         L.marker([s.lat, s.lng], { icon, keyboard: false })
           .bindPopup(`<div style="min-width:190px">
-            <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3)">${s.codigo}</p>
-            <p style="font-weight:600;font-size:13px;margin:2px 0">${s.nombre}</p>
-            <p style="font-size:11px;color:var(--ink2)">${s.distrito} · ${s.tipo} · ${UI.estadoInfo(s.estado).label}</p>
-            <a href="bts-detalle.html?id=${s.id}&role=${Alpine.store('ui').role}&theme=${Alpine.store('ui').theme}"
+             <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3)">${UI.esc(s.codigo)}</p>
+             <p style="font-weight:600;font-size:13px;margin:2px 0">${UI.esc(s.nombre)}</p>
+             <p style="font-size:11px;color:var(--ink2)">${UI.esc(s.distrito)} · ${UI.esc(s.tipo)} · ${UI.esc(UI.estadoInfo(s.estado).label)}</p>
+             <a href="bts-detalle.html?id=${encodeURIComponent(s.id)}&role=${encodeURIComponent(Alpine.store('ui').role)}&theme=${encodeURIComponent(Alpine.store('ui').theme)}"
                style="font-size:12px;color:#2563eb;font-weight:500">Ver ficha →</a></div>`)
           .addTo(this.capa);
       });
@@ -190,7 +256,7 @@ function btsPage() {
           <template x-for="p in $store.db.proyectos"><option :value="p.codigo" x-text="p.codigo"></option></template>
         </select>
         <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="resetFilters()">Limpiar</button>
-        <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" x-show="$store.ui.puede('crear')" @click="UI.protoNotice()"
+        <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" x-show="$store.ui.puede('crear')" @click="nuevoSitio()"
           x-html="UI.icon('plus',15)+' Registrar sitio'"></button>
       </div>
 
@@ -203,6 +269,7 @@ function btsPage() {
             <th>Coordenadas</th><th>Tipo</th><th class="sortable" @click="sortBy('proyecto')">Proyecto <span x-text="sortIcon('proyecto')"></span></th>
             <th>Tecnol.</th><th class="sortable" @click="sortBy('estado')">Estado <span x-text="sortIcon('estado')"></span></th>
             <th class="sortable" @click="sortBy('avance')">Avance <span x-text="sortIcon('avance')"></span></th>
+            <th><span class="sr-only">Acciones</span></th>
           </tr></thead>
           <tbody>
             <template x-for="s in paged" :key="s.id">
@@ -216,9 +283,15 @@ function btsPage() {
                 <td class="text-xs mono" x-text="s.tecnologias.join('/')"></td>
                 <td x-html="UI.badge(s.estado)"></td>
                 <td><span x-show="s.avance >= 0" x-html="UI.progress(Math.max(0,s.avance))"></span><span x-show="s.avance < 0" class="text-xs text-ink-3">—</span></td>
+                <td class="row-actions text-right whitespace-nowrap">
+                  <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear')"
+                    @click="editarSitio($store.db.sitios.find(x => x.id === s.id))" x-tooltip="'Editar sitio'" aria-label="Editar" x-html="UI.icon('edit',14)"></button>
+                  <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear')"
+                    @click="borrando = s" x-tooltip="'Eliminar sitio'" aria-label="Eliminar" x-html="UI.icon('trash',14)"></button>
+                </td>
               </tr>
             </template>
-            <tr x-show="!filtered.length"><td colspan="9" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún sitio coincide con los filtros.'})"></td></tr>
+            <tr x-show="!filtered.length"><td colspan="10" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún sitio coincide con los filtros.'})"></td></tr>
           </tbody>
         </table>
       </div>
@@ -232,6 +305,147 @@ function btsPage() {
       </div>
     </section>
   </div>
+
+  <!-- ══ Modal: alta / edición de sitio ══ -->
+  <template x-if="form">
+    <div @keydown.escape.window="form=null">
+      <div class="ui-backdrop" @click="form=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="st-t">
+        <div class="ui-modal-box" style="max-width:620px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="st-t" x-text="form.id ? 'Editar estación base' : 'Registrar estación base'"></h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="form=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label class="ui-label" for="st-cod">Código de sitio *</label>
+                <input id="st-cod" class="ui-input mono" :class="errCodigo && 'is-invalid'" x-model="form.codigo"
+                  placeholder="IC-PISCO-0342" @input="tocado=true; form.codigo = form.codigo.toUpperCase()" autofocus>
+                <p class="ui-error" x-show="errCodigo" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errCodigo"></span></p>
+                <p class="ui-help" x-show="!errCodigo">Formato de operador: REGIÓN-DISTRITO-NNNN</p>
+              </div>
+              <div>
+                <label class="ui-label" for="st-nom">Nombre del sitio *</label>
+                <input id="st-nom" class="ui-input" :class="errNombre && 'is-invalid'" x-model="form.nombre"
+                  placeholder="Ej. Azotea Galería Fénix" @input="tocado=true">
+                <p class="ui-error" x-show="errNombre" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errNombre"></span></p>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="ui-label" for="st-dir">Dirección</label>
+                <input id="st-dir" class="ui-input" x-model="form.direccion" placeholder="Ej. Panamericana Sur km 296, Subtanjalla">
+              </div>
+              <div>
+                <label class="ui-label" for="st-dis">Distrito</label>
+                <input id="st-dis" class="ui-input" x-model="form.distrito" placeholder="Ej. Subtanjalla">
+              </div>
+              <div>
+                <label class="ui-label" for="st-pro">Provincia</label>
+                <input id="st-pro" class="ui-input" x-model="form.provincia" list="provincias" placeholder="Ej. Ica">
+                <datalist id="provincias"><option>Ica</option><option>Pisco</option><option>Chincha</option><option>Nazca</option><option>Palpa</option></datalist>
+              </div>
+
+              <div>
+                <label class="ui-label" for="st-lat">Latitud *</label>
+                <input id="st-lat" class="ui-input mono" :class="errCoords && 'is-invalid'" x-model="form.lat"
+                  placeholder="-14.06414" inputmode="decimal" @input="tocado=true" @paste="pegarCoords($event)">
+              </div>
+              <div>
+                <label class="ui-label" for="st-lng">Longitud *</label>
+                <input id="st-lng" class="ui-input mono" :class="errCoords && 'is-invalid'" x-model="form.lng"
+                  placeholder="-75.72951" inputmode="decimal" @input="tocado=true" @paste="pegarCoords($event)">
+              </div>
+              <div class="sm:col-span-2 -mt-2">
+                <p class="ui-error" x-show="errCoords" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errCoords"></span></p>
+                <p class="ui-help" x-show="!errCoords">Puedes pegar «-13.71030, -76.20320» copiado de Google Maps en cualquiera de los dos campos.</p>
+              </div>
+
+              <div>
+                <label class="ui-label" for="st-tipo">Tipo de estructura</label>
+                <select id="st-tipo" class="ui-select" x-model="form.tipo">
+                  <template x-for="t in TIPOS_SITIO" :key="t"><option :value="t" x-text="t"></option></template>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="st-alt">Altura (m)</label>
+                <input id="st-alt" type="number" min="0" max="120" class="ui-input mono" x-model.number="form.altura">
+              </div>
+              <div>
+                <label class="ui-label" for="st-pry">Proyecto</label>
+                <select id="st-pry" class="ui-select" x-model="form.proyectoId">
+                  <option value="">Sin asignar</option>
+                  <template x-for="p in $store.db.proyectos" :key="p.id"><option :value="p.id" x-text="p.codigo + ' — ' + p.nombre"></option></template>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="st-est">Estado</label>
+                <select id="st-est" class="ui-select" x-model="form.estado">
+                  <option value="planificado">Planificado</option><option value="en_ejecucion">En ejecución</option>
+                  <option value="operativo">Operativo</option><option value="alarma">En alarma</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="ui-label" for="st-ene">Energía</label>
+                <input id="st-ene" class="ui-input" x-model="form.energia" list="energias"
+                  placeholder="Ej. Red comercial + banco 48V">
+                <datalist id="energias">
+                  <option>Red comercial</option><option>Red comercial + banco 48V</option>
+                  <option>Red comercial + grupo electrógeno</option><option>Solar + banco 48V</option>
+                </datalist>
+              </div>
+              <div class="sm:col-span-2">
+                <p class="ui-label">Tecnologías desplegadas</p>
+                <div class="flex gap-2 flex-wrap">
+                  <template x-for="t in TECNOLOGIAS" :key="t">
+                    <label class="flex items-center gap-2 border border-line rounded-md px-3 py-1.5 cursor-pointer hover:bg-surface-2 tr-150"
+                      :class="form.tecnologias.includes(t) && 'ring-2 ring-brand-500'">
+                      <input type="checkbox" class="ui-check" :value="t" x-model="form.tecnologias">
+                      <span class="mono text-sm" x-text="t"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="form=null">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" :data-loading="guardando ? 1 : 0" @click="guardarSitio()">
+              <span class="spin" aria-hidden="true"></span>
+              <span x-text="form.id ? 'Guardar cambios' : 'Registrar sitio'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══ Confirmación de eliminación ══ -->
+  <template x-if="borrando">
+    <div @keydown.escape.window="borrando=null">
+      <div class="ui-backdrop" @click="borrando=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="del-t">
+        <div class="ui-modal-box" style="max-width:440px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="del-t">Eliminar estación base</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="borrando=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-3">
+            <p class="text-sm">Vas a eliminar <span class="mono font-semibold" x-text="borrando.codigo"></span>
+              — <span x-text="borrando.nombre"></span>.</p>
+            <div class="p-3 rounded-md border text-sm" style="background:var(--st-pendiente-bg);border-color:var(--st-pendiente-bd)">
+              <p class="text-ink-2">Si el sitio tiene actividades registradas no podrá eliminarse, para no perder el
+                historial de trabajos. En ese caso cámbialo a estado <span class="font-medium text-ink-1">inactivo</span>.</p>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="borrando=null">Cancelar</button>
+            <button class="ui-btn ui-btn-danger ui-btn-md" @click="confirmarBorrado()">Eliminar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </main>
 
 </body>

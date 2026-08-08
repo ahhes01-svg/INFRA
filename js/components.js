@@ -294,6 +294,22 @@
 
 /* ============================ 2. UI helpers ================================*/
 window.UI = (function () {
+  function esc(valor) {
+    return String(valor ?? '').replace(/[&<>"]/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+    })[c]);
+  }
+
+  function imagenSegura(valor) {
+    if (!valor) return '';
+    try {
+      const url = new URL(String(valor), location.href);
+      return ['http:', 'https:', 'blob:'].includes(url.protocol) ? esc(url.href) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   /* --- Iconos (trazo 24×24, estilo lucide) --- */
   const paths = {
     dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
@@ -396,7 +412,7 @@ window.UI = (function () {
   }
   function badge(estado, labelOverride) {
     const e = estadoInfo(estado);
-    return `<span class="ui-badge st-${e.key}" role="status"><span class="dot" aria-hidden="true"></span>${labelOverride || e.label}</span>`;
+    return `<span class="ui-badge st-${e.key}" role="status"><span class="dot" aria-hidden="true"></span>${esc(labelOverride || e.label)}</span>`;
   }
 
   /* --- Botón --- */
@@ -405,7 +421,7 @@ window.UI = (function () {
       ${disabled ? 'disabled' : ''} ${loading ? 'data-loading="1"' : ''}>
       <span class="spin" aria-hidden="true"></span>
       ${ic ? `<span class="btn-ico" aria-hidden="true">${icon(ic, size === 'sm' ? 13 : 15)}</span>` : ''}
-      ${srOnly ? `<span class="sr-only">${label}</span>` : label ? `<span>${label}</span>` : ''}
+      ${srOnly ? `<span class="sr-only">${esc(label)}</span>` : label ? `<span>${esc(label)}</span>` : ''}
     </button>`;
   }
 
@@ -415,10 +431,12 @@ window.UI = (function () {
   }
   function avatar(t, size = 32, extraCls = '') {
     const ini = iniciales(t.nombre || '?');
-    const img = t.foto
-      ? `<img src="${t.foto}" alt="" loading="lazy" onerror="this.remove()">`
+    const foto = imagenSegura(t.foto);
+    const nombre = esc(t.nombre || '');
+    const img = foto
+      ? `<img src="${foto}" alt="" loading="lazy" onerror="this.remove()">`
       : '';
-    return `<span class="ui-avatar ui-avatar-${size} ${extraCls}" title="${t.nombre || ''}" aria-label="${t.nombre || ''}"><span aria-hidden="true" style="position:absolute">${ini}</span>${img}</span>`;
+    return `<span class="ui-avatar ui-avatar-${size} ${esc(extraCls)}" title="${nombre}" aria-label="${nombre}"><span aria-hidden="true" style="position:absolute">${esc(ini)}</span>${img}</span>`;
   }
 
   /* --- Barra / celda de progreso --- */
@@ -488,8 +506,8 @@ window.UI = (function () {
   function emptyState({ icon: ic = 'inbox', title, desc = '', action = '' }) {
     return `<div class="ui-empty" role="status">
       ${icon(ic, 36)}
-      <p class="font-semibold text-base text-ink-1">${title}</p>
-      ${desc ? `<p class="text-sm max-w-sm">${desc}</p>` : ''}
+      <p class="font-semibold text-base text-ink-1">${esc(title)}</p>
+      ${desc ? `<p class="text-sm max-w-sm">${esc(desc)}</p>` : ''}
       ${action ? `<div class="mt-2">${action}</div>` : ''}
     </div>`;
   }
@@ -498,8 +516,8 @@ window.UI = (function () {
   function errorState({ title = 'No se pudo cargar la información', desc = '', retryAttr = '' }) {
     return `<div class="ui-empty" role="alert">
       <span style="color:var(--st-critico)">${icon('alertCircle', 36)}</span>
-      <p class="font-semibold text-base text-ink-1">${title}</p>
-      ${desc ? `<p class="text-sm max-w-sm">${desc}</p>` : ''}
+      <p class="font-semibold text-base text-ink-1">${esc(title)}</p>
+      ${desc ? `<p class="text-sm max-w-sm">${esc(desc)}</p>` : ''}
       <div class="mt-2">${btn({ label: 'Reintentar', variant: 'secondary', icon: 'refresh', attrs: retryAttr })}</div>
     </div>`;
   }
@@ -578,7 +596,7 @@ window.UI = (function () {
   window.addEventListener('app:theme', () => chartRegistry.forEach(e => e.rebuild()));
   window.addEventListener('app:data', () => chartRegistry.forEach(e => e.rebuild()));
 
-  return { icon, badge, estadoInfo, btn, avatar, progress, kpi, skel, emptyState, errorState, protoNotice, fmt, iniciales, makeChart, chartTheme };
+  return { icon, badge, estadoInfo, btn, avatar, progress, kpi, skel, emptyState, errorState, protoNotice, fmt, iniciales, makeChart, chartTheme, esc };
 })();
 
 /* ======================= 3. Componentes Alpine =============================*/

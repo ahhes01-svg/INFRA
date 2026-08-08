@@ -14,7 +14,12 @@ window.CONFIG = {
   url: 'https://xcdjcdkgpkeeucdlglkb.supabase.co',
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZGpjZGtncGtlZXVjZGxnbGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMDMyNTQsImV4cCI6MjEwMTc3OTI1NH0.OqSB10Fa1nIIWYwZd9e25qAbqOe8qBYBHYgIT7Pm-gg',
   bucketEvidencias: 'evidencias',
+  fechaDemo: '2026-08-08',
+  // Mantener desactivado si Auth permite registro público. Las cuentas se
+  // crean desde Supabase y después se vinculan desde la ficha del técnico.
+  permitirAltaDesdeApp: false,
 
   // Fuerza el modo demo aunque haya URL (útil para presentaciones sin internet)
+  // En producción los fallos de red NO activan el demo automáticamente.
   forzarDemo: false,
 };

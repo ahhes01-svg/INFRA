@@ -104,7 +104,7 @@ function jornadaPage() {
     <div class="ui-card mt-6" x-html="UI.emptyState({ icon:'calendar', title:'Hoy no tienes actividades', desc:'Disfruta el descanso o consulta con tu supervisor. Cuando te asignen trabajo aparecerá aquí.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Recupera la conexión antes de registrar cambios.', retryAttr:`@click=&quot;location.reload()&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

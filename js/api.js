@@ -78,7 +78,7 @@ window.API = (function () {
 
   const mapMaterial = r => ({
     id: r.id, nombre: r.nombre, categoria: r.categoria, unidad: r.unidad,
-    stock: r.stock, minimo: r.minimo, almacen: r.almacen,
+    stock: r.stock, minimo: r.minimo, almacen: r.almacen, proyectoId: r.proyecto_id || '',
   });
 
   const mapMovimiento = r => ({
@@ -89,7 +89,7 @@ window.API = (function () {
 
   const mapEvidencia = r => ({
     id: r.id, actividadId: r.actividad_id, tipo: r.tipo, titulo: r.titulo,
-    archivo: urlEvidencia(r.archivo), rutaArchivo: r.archivo,
+    archivo: /^https?:\/\//.test(r.archivo || '') ? r.archivo : '', rutaArchivo: r.archivo,
     fecha: r.fecha, hora: (r.hora || '').slice(0, 5),
     subidoPor: r.subido_por, estado: r.estado, lat: r.lat, lng: r.lng,
   });
@@ -99,17 +99,24 @@ window.API = (function () {
     usuario: r.usuario, accion: r.accion, entidad: r.entidad, detalle: r.detalle,
   });
 
-  const mapNotificacion = r => ({
+  const mapNotificacion = (r, lecturas = new Set()) => ({
     id: r.id, tipo: r.tipo, titulo: r.titulo, detalle: r.detalle,
-    link: r.link || '#', fecha: r.fecha, hora: (r.hora || '').slice(0, 5), leida: r.leida,
+    link: r.link || '#', fecha: r.fecha, hora: (r.hora || '').slice(0, 5), leida: lecturas.has(r.id),
   });
 
-  // Las evidencias demo son URLs completas; las reales son rutas del bucket
-  function urlEvidencia(ruta) {
-    if (!ruta) return '';
-    if (/^https?:\/\//.test(ruta)) return ruta;
-    if (!sb) return ruta;
-    return sb.storage.from(cfg.bucketEvidencias || 'evidencias').getPublicUrl(ruta).data.publicUrl;
+  // El bucket real es privado: las miniaturas reciben URLs temporales.
+  async function mapearEvidencias(filas) {
+    const evidencias = (filas || []).map(mapEvidencia);
+    const privadas = evidencias.filter(e => e.rutaArchivo && !/^https?:\/\//.test(e.rutaArchivo));
+    if (!privadas.length) return evidencias;
+
+    const rutas = privadas.map(e => e.rutaArchivo);
+    const { data, error } = await sb.storage
+      .from(cfg.bucketEvidencias || 'evidencias')
+      .createSignedUrls(rutas, 3600);
+    if (error) throw error;
+    privadas.forEach((e, i) => { e.archivo = data?.[i]?.signedUrl || ''; });
+    return evidencias;
   }
 
   /* ── Arranque (idempotente: varias llamadas comparten una sola conexión) ── */
@@ -117,23 +124,32 @@ window.API = (function () {
   function iniciar() {
     if (promesaInicio) return promesaInicio;
     promesaInicio = (async () => {
-      if (cfg.forzarDemo || !cfg.url || !window.supabase) {
+      if (cfg.forzarDemo || !cfg.url) {
         modoDemo = true;
         return { modoDemo: true, sesion: null };
+      }
+      modoDemo = false;
+      if (!window.supabase) {
+        return { modoDemo: false, sesion: null, error: 'No se pudo cargar el cliente seguro de conexión.' };
       }
       sb = window.supabase.createClient(cfg.url, cfg.anonKey, {
         auth: { persistSession: true, autoRefreshToken: true },
       });
-      modoDemo = false;
       try {
         const { data: { session } } = await sb.auth.getSession();
-        if (session) await cargarPerfil();
+        if (session) {
+          const p = await cargarPerfil();
+          if (!p || (p.rol === 'tecnico' && !p.tecnico_id)) {
+            await sb.auth.signOut();
+            perfil = null;
+            return { modoDemo: false, sesion: null, error: 'La cuenta todavía no está vinculada a un técnico.' };
+          }
+        }
         return { modoDemo: false, sesion: session };
       } catch (e) {
-        // Sin conexión con el servidor: seguimos en demo para no dejar la app muerta
-        console.warn('Sin conexión con el backend, se usa el modo demo:', e.message);
-        modoDemo = true;
-        return { modoDemo: true, sesion: null, error: e.message };
+        // En modo conectado se falla de forma cerrada: nunca se muestran datos demo.
+        console.error('Sin conexión con el backend:', e.message);
+        return { modoDemo: false, sesion: null, error: e.message };
       }
     })();
     return promesaInicio;
@@ -142,24 +158,45 @@ window.API = (function () {
   async function cargarPerfil() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { perfil = null; return null; }
-    const { data } = await sb.from('perfiles').select('*').eq('id', user.id).maybeSingle();
-    perfil = data || { id: user.id, nombre: user.email, rol: 'tecnico', tecnico_id: null };
+    const { data, error } = await sb.from('perfiles').select('*').eq('id', user.id).maybeSingle();
+    if (error) throw error;
+    perfil = data || null;
     return perfil;
   }
 
   /* ── Autenticación ─────────────────────────────────────────────────────── */
+  // Los errores de Supabase llegan en inglés; los traducimos y, cuando el
+  // problema es de configuración del proyecto, decimos dónde se arregla.
+  function traducirError(error) {
+    const codigo = error.code || error.error_code || '';
+    const msg = error.message || '';
+    if (codigo === 'email_provider_disabled' || /Email logins are disabled/i.test(msg)) {
+      return 'El acceso por correo está desactivado en el servidor. ' +
+             'Actívalo en Supabase → Authentication → Sign In / Providers → Email → "Enable Email provider".';
+    }
+    if (codigo === 'invalid_credentials' || /Invalid login/i.test(msg)) return 'Usuario o contraseña incorrectos';
+    if (codigo === 'email_not_confirmed' || /Email not confirmed/i.test(msg)) {
+      return 'La cuenta aún no está confirmada. Pide al administrador que la active.';
+    }
+    if (codigo === 'over_request_rate_limit' || /rate limit/i.test(msg)) {
+      return 'Demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.';
+    }
+    if (codigo === 'user_banned') return 'Esta cuenta está suspendida.';
+    if (/Failed to fetch|NetworkError/i.test(msg)) return 'Sin conexión con el servidor. Revisa tu red.';
+    return msg || 'No se pudo iniciar sesión';
+  }
+
   async function entrar(email, password) {
     if (modoDemo) return { ok: true, demo: true };
+    if (!sb) return { ok: false, error: 'El servicio de acceso no está disponible. Intenta nuevamente.' };
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      const msg = /Invalid login/i.test(error.message)
-        ? 'Usuario o contraseña incorrectos'
-        : /Email not confirmed/i.test(error.message)
-          ? 'La cuenta aún no está confirmada. Pide al administrador que la active.'
-          : error.message;
-      return { ok: false, error: msg };
+    if (error) return { ok: false, error: traducirError(error) };
+    const p = await cargarPerfil();
+    if (!p || (p.rol === 'tecnico' && !p.tecnico_id)) {
+      await sb.auth.signOut();
+      perfil = null;
+      return { ok: false, error: 'La cuenta existe, pero aún no está vinculada a un técnico.' };
     }
-    await cargarPerfil();
     return { ok: true };
   }
 
@@ -179,7 +216,7 @@ window.API = (function () {
     try {
       const [
         clientes, proyectos, sitios, tecnicos, tipos, actividades,
-        incidencias, materiales, movimientos, evidencias, historial, notificaciones,
+        incidencias, materiales, movimientos, evidencias, historial, notificaciones, lecturasNotif,
       ] = await Promise.all([
         sb.from('clientes').select('*').order('id'),
         sb.from('proyectos').select('*').order('codigo'),
@@ -193,10 +230,11 @@ window.API = (function () {
         sb.from('evidencias').select('*').order('fecha', { ascending: false }),
         sb.from('historial').select('*').order('id', { ascending: false }).limit(200),
         sb.from('notificaciones').select('*').order('id', { ascending: false }).limit(50),
+        sb.from('notificacion_lecturas').select('notificacion_id'),
       ]);
 
       const err = [clientes, proyectos, sitios, tecnicos, tipos, actividades,
-        incidencias, materiales, movimientos, evidencias, notificaciones].find(r => r.error);
+        incidencias, materiales, movimientos, evidencias, notificaciones, lecturasNotif].find(r => r.error);
       if (err) throw err.error;
 
       DB.clientes        = (clientes.data     || []).map(mapCliente);
@@ -208,9 +246,10 @@ window.API = (function () {
       DB.incidencias     = (incidencias.data  || []).map(mapIncidencia);
       DB.materiales      = (materiales.data   || []).map(mapMaterial);
       DB.movimientos     = (movimientos.data  || []).map(mapMovimiento);
-      DB.evidencias      = (evidencias.data   || []).map(mapEvidencia);
+      DB.evidencias      = await mapearEvidencias(evidencias.data || []);
       DB.historial       = (historial.data    || []).map(mapHistorial);
-      DB.notificaciones  = (notificaciones.data || []).map(mapNotificacion);
+      const leidas = new Set((lecturasNotif.data || []).map(x => x.notificacion_id));
+      DB.notificaciones  = (notificaciones.data || []).map(n => mapNotificacion(n, leidas));
 
       if (perfil) {
         DB.sesion = {
@@ -232,25 +271,36 @@ window.API = (function () {
   async function refrescar() {
     if (modoDemo) { window.dispatchEvent(new CustomEvent('app:data')); return; }
     const DB = window.DB;
-    const [acts, incs, mats, movs, evs, hist, notifs, sits] = await Promise.all([
-      sb.from('actividades').select('*, actividad_tecnicos(tecnico_id), checklist_items(id,orden,texto,ok)').order('fecha', { ascending: false }),
-      sb.from('incidencias').select('*').order('fecha', { ascending: false }),
-      sb.from('materiales').select('*').order('id'),
-      sb.from('movimientos_material').select('*').order('id', { ascending: false }),
-      sb.from('evidencias').select('*').order('fecha', { ascending: false }),
-      sb.from('historial').select('*').order('id', { ascending: false }).limit(200),
-      sb.from('notificaciones').select('*').order('id', { ascending: false }).limit(50),
-      sb.from('sitios').select('*').order('codigo'),
-    ]);
-    if (acts.data)   DB.actividades    = acts.data.map(mapActividad);
-    if (incs.data)   DB.incidencias    = incs.data.map(mapIncidencia);
-    if (mats.data)   DB.materiales     = mats.data.map(mapMaterial);
-    if (movs.data)   DB.movimientos    = movs.data.map(mapMovimiento);
-    if (evs.data)    DB.evidencias     = evs.data.map(mapEvidencia);
-    if (hist.data)   DB.historial      = hist.data.map(mapHistorial);
-    if (notifs.data) DB.notificaciones = notifs.data.map(mapNotificacion);
-    if (sits.data)   DB.sitios         = sits.data.map(mapSitio);
-    window.dispatchEvent(new CustomEvent('app:data'));
+    try {
+      const resultados = await Promise.all([
+        sb.from('actividades').select('*, actividad_tecnicos(tecnico_id), checklist_items(id,orden,texto,ok)').order('fecha', { ascending: false }),
+        sb.from('incidencias').select('*').order('fecha', { ascending: false }),
+        sb.from('materiales').select('*').order('id'),
+        sb.from('movimientos_material').select('*').order('id', { ascending: false }),
+        sb.from('evidencias').select('*').order('fecha', { ascending: false }),
+        sb.from('historial').select('*').order('id', { ascending: false }).limit(200),
+        sb.from('notificaciones').select('*').order('id', { ascending: false }).limit(50),
+        sb.from('notificacion_lecturas').select('notificacion_id'),
+        sb.from('sitios').select('*').order('codigo'),
+      ]);
+      const error = resultados.find(r => r.error)?.error;
+      if (error) throw error;
+      const [acts, incs, mats, movs, evs, hist, notifs, lecturasNotif, sits] = resultados;
+      DB.actividades    = acts.data.map(mapActividad);
+      DB.incidencias    = incs.data.map(mapIncidencia);
+      DB.materiales     = mats.data.map(mapMaterial);
+      DB.movimientos    = movs.data.map(mapMovimiento);
+      DB.evidencias     = await mapearEvidencias(evs.data);
+      DB.historial      = hist.data.map(mapHistorial);
+      const leidas = new Set(lecturasNotif.data.map(x => x.notificacion_id));
+      DB.notificaciones = notifs.data.map(n => mapNotificacion(n, leidas));
+      DB.sitios         = sits.data.map(mapSitio);
+      window.dispatchEvent(new CustomEvent('app:data'));
+      return { ok: true };
+    } catch (e) {
+      console.error('Error al refrescar datos:', e);
+      return { ok: false, error: e.message || 'No se pudo actualizar la información' };
+    }
   }
 
   /* ── Llamada a función de negocio del servidor ─────────────────────────── */
@@ -308,6 +358,9 @@ window.API = (function () {
         p_archivo: blob ? ruta : null,
         p_lat: gps.lat ?? null, p_lng: gps.lng ?? null,
       });
+      if ((!r || !r.ok) && blob) {
+        await sb.storage.from(cfg.bucketEvidencias || 'evidencias').remove([ruta]);
+      }
       if (r && r.ok) await refrescar();
       return r;
     } catch (e) {
@@ -315,9 +368,43 @@ window.API = (function () {
     }
   }
 
+  /* ── Alta de cuentas de acceso ─────────────────────────────────────────
+   * Crear una cuenta con signUp() iniciaría sesión como el usuario nuevo y
+   * echaría al administrador. Por eso usamos un cliente aparte que no guarda
+   * sesión: la cuenta se crea y el admin sigue dentro.
+   *
+   * El rol NO viaja aquí: toda cuenta nace como técnico sin permisos, y solo
+   * después un gestor autenticado la eleva con vincular_cuenta_tecnico().
+   * ------------------------------------------------------------------------*/
+  async function crearCuenta(email, password, nombre) {
+    if (modoDemo) return { ok: false, error: 'Modo demo: no se pueden crear cuentas reales' };
+    if (!cfg.permitirAltaDesdeApp) {
+      return { ok: false, error: 'Por seguridad, crea la cuenta desde Supabase Auth y luego vincúlala aquí.' };
+    }
+    const aparte = window.supabase.createClient(cfg.url, cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const { data, error } = await aparte.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { nombre } },
+    });
+    if (error) return { ok: false, error: traducirError(error) };
+    // Sin confirmación de correo, la cuenta queda lista de inmediato
+    const requiereConfirmacion = !data.session && !!data.user && !data.user.confirmed_at;
+    return { ok: true, id: data.user ? data.user.id : null, requiereConfirmacion };
+  }
+
+  async function cuentasDeTecnicos() {
+    if (modoDemo) return [];
+    const { data, error } = await sb.rpc('tecnicos_con_cuenta');
+    return error ? [] : (data || []);
+  }
+
   return {
     iniciar, entrar, salir, sesionActiva, miPerfil, estaEnDemo,
-    cargarTodo, refrescar, rpc, subirEvidencia, urlEvidencia,
+    cargarTodo, refrescar, rpc, subirEvidencia,
+    crearCuenta, cuentasDeTecnicos,
     get cliente() { return sb; },
   };
 })();
@@ -487,6 +574,115 @@ window.API = (function () {
       const r = await API.rpc('ingresar_material', { p_material: materialId, p_cantidad: cantidad });
       if (r && r.ok) await API.refrescar();
       return r || { ok: false };
+    },
+
+    /* ── Gestión de catálogos (solo admin/supervisor) ── */
+    async guardarTecnico(t) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (t.id) { Object.assign(db.tecnicos.find(x => x.id === t.id) || {}, t); }
+        else {
+          const n = db.tecnicos.length + 1;
+          db.tecnicos.push({ ...t, id: 'tec-' + String(n).padStart(2, '0'), certificaciones: t.certificaciones || [] });
+        }
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !t.id };
+      }
+      const r = await API.rpc('guardar_tecnico', {
+        p_id: t.id || null, p_nombre: t.nombre, p_dni: t.dni || '', p_rol: t.rol,
+        p_especialidad: t.especialidad, p_telefono: t.telefono, p_zona: t.zona,
+        p_estado: t.estado || 'disponible', p_certificaciones: t.certificaciones || [],
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarTecnico(id) {
+      if (enDemo()) {
+        window.DB.tecnicos = window.DB.tecnicos.filter(t => t.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, modo: 'eliminado' };
+      }
+      const r = await API.rpc('eliminar_tecnico', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    // Crea la cuenta de acceso y la vincula con la ficha del técnico
+    async crearAcceso(email, password, tecnicoId, rol = 'tecnico', nombre = '') {
+      if (enDemo()) return { ok: false, error: 'Modo demo: no se pueden crear cuentas reales' };
+      const c = await API.crearCuenta(email, password, nombre);
+      if (!c.ok) return c;
+      const v = await API.rpc('vincular_cuenta_tecnico', {
+        p_email: email, p_tecnico_id: tecnicoId || null, p_rol: rol,
+      });
+      if (v && !v.ok) return { ok: false, error: v.error, cuentaCreada: true };
+      await API.refrescar();
+      return { ok: true, requiereConfirmacion: c.requiereConfirmacion };
+    },
+
+    async revocarAcceso(tecnicoId) {
+      if (enDemo()) return { ok: false, error: 'Modo demo' };
+      const r = await API.rpc('desvincular_cuenta', { p_tecnico_id: tecnicoId });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false };
+    },
+
+    async guardarSitio(s) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (s.id) Object.assign(db.sitios.find(x => x.id === s.id) || {}, s);
+        else db.sitios.push({ ...s, id: 'st-' + (db.sitios.length + 1) });
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !s.id };
+      }
+      const r = await API.rpc('guardar_sitio', {
+        p_id: s.id || null, p_codigo: s.codigo, p_nombre: s.nombre, p_direccion: s.direccion,
+        p_distrito: s.distrito, p_provincia: s.provincia, p_lat: Number(s.lat), p_lng: Number(s.lng),
+        p_tipo: s.tipo, p_altura: Number(s.altura) || 0, p_tecnologias: s.tecnologias || [],
+        p_energia: s.energia, p_proyecto_id: s.proyectoId || null, p_estado: s.estado || 'planificado',
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarSitio(id) {
+      if (enDemo()) {
+        window.DB.sitios = window.DB.sitios.filter(s => s.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true };
+      }
+      const r = await API.rpc('eliminar_sitio', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async guardarMaterial(m) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (m.id) Object.assign(db.materiales.find(x => x.id === m.id) || {}, m);
+        else db.materiales.push({ ...m, id: 'MAT-' + String(db.materiales.length + 1).padStart(3, '0') });
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !m.id };
+      }
+      const r = await API.rpc('guardar_material', {
+        p_id: m.id || null, p_nombre: m.nombre, p_categoria: m.categoria, p_unidad: m.unidad,
+        p_stock: Number(m.stock) || 0, p_minimo: Number(m.minimo) || 0,
+        p_almacen: m.almacen, p_proyecto_id: m.proyectoId || null,
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarMaterial(id) {
+      if (enDemo()) {
+        window.DB.materiales = window.DB.materiales.filter(m => m.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true };
+      }
+      const r = await API.rpc('eliminar_material', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
     },
 
     async marcarLeida(id) {

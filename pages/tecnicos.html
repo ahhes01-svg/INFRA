@@ -14,11 +14,126 @@
 <script src="../js/data.js"></script>
 <script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
+<script>
+const ROLES_TECNICO = ['Líder de cuadrilla', 'Técnico RF', 'Técnico electricista', 'Técnico de transmisión',
+  'Técnico de energía', 'Técnico de comisionamiento', 'Técnico correctivo', 'Rigger / torrero', 'Drive tester'];
+const CERTIFICACIONES = ['Trabajos en altura', 'Primeros auxilios', 'Manejo defensivo',
+  'Electricista industrial', 'Izaje y rigging nivel II', 'Anritsu certified', 'Huawei HCIA-5G', 'TEMS Investigation'];
+
+function tecnicosPage() {
+  const vacio = () => ({
+    id: null, nombre: '', dni: '', rol: 'Técnico RF', especialidad: '', telefono: '',
+    zona: 'Ica', estado: 'disponible', certificaciones: [],
+  });
+  return {
+    filtro: '', estado: '', sel: null,
+    form: null,                 // ficha en edición (null = modal cerrado)
+    guardando: false,
+    tocado: false,
+    borrando: null,             // técnico pendiente de confirmar baja
+    acceso: null,               // { tecnicoId, email, password, rol }
+    cuentas: [],                // técnicos que ya tienen cuenta
+
+    async init() {
+      const id = new URLSearchParams(location.search).get('id');
+      if (id && CALC.tecnico(id).id) this.sel = id;
+      await this.cargarCuentas();
+      window.addEventListener('app:data', () => this.cargarCuentas());
+    },
+    async cargarCuentas() {
+      if (API.estaEnDemo()) { this.cuentas = []; return; }
+      this.cuentas = await API.cuentasDeTecnicos();
+    },
+    cuentaDe(tecnicoId) { return this.cuentas.find(c => c.tecnico_id === tecnicoId) || null; },
+
+    lista() {
+      return Alpine.store('db').tecnicos.filter(t =>
+        (!this.estado || t.estado === this.estado) &&
+        (!this.filtro || (t.nombre + t.rol + t.especialidad + (t.dni || ''))
+          .toLowerCase().includes(this.filtro.toLowerCase())));
+    },
+
+    /* ── Alta y edición ── */
+    nuevo() { this.form = vacio(); this.tocado = false; },
+    editar(t) { this.form = { ...t, certificaciones: [...(t.certificaciones || [])] }; this.tocado = false; },
+    get errNombre() {
+      if (!this.tocado) return '';
+      return this.form.nombre.trim().length < 5 ? 'Escribe el nombre completo' : '';
+    },
+    get errDni() {
+      if (!this.tocado || !this.form.dni) return '';
+      return /^[0-9]{8}$/.test(this.form.dni) ? '' : 'El DNI debe tener 8 dígitos';
+    },
+    async guardar() {
+      this.tocado = true;
+      if (this.errNombre || this.errDni) return;
+      this.guardando = true;
+      const r = await ACCIONES.guardarTecnico(this.form);
+      this.guardando = false;
+      if (!r.ok) { Alpine.store('toasts').push('error', 'No se pudo guardar', r.error); return; }
+      Alpine.store('toasts').push('ok', r.creado ? 'Técnico registrado' : 'Ficha actualizada', this.form.nombre);
+      this.form = null;
+    },
+
+    /* ── Baja ── */
+    async confirmarBaja() {
+      const t = this.borrando;
+      const r = await ACCIONES.eliminarTecnico(t.id);
+      if (!r.ok) { Alpine.store('toasts').push('error', 'No se puede dar de baja', r.error); this.borrando = null; return; }
+      Alpine.store('toasts').push('ok', 'Técnico dado de baja', r.mensaje || t.nombre);
+      this.borrando = null;
+    },
+
+    /* ── Cuenta de acceso ── */
+    abrirAcceso(t) {
+      this.acceso = { tecnicoId: t.id, nombre: t.nombre, email: '', password: this.sugerirClave(), rol: 'tecnico', tocado: false };
+    },
+    sugerirClave() {
+      // Clave temporal legible para dictar en campo
+      const s = 'abcdefghijkmnpqrstuvwxyz23456789';
+      return 'Nett' + Array.from({ length: 6 }, () => s[Math.floor(Math.random() * s.length)]).join('');
+    },
+    get errEmail() {
+      if (!this.acceso || !this.acceso.tocado) return '';
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.acceso.email.trim())) return 'Correo inválido';
+      return '';
+    },
+    async crearAcceso() {
+      this.acceso.tocado = true;
+      if (this.errEmail || this.acceso.password.length < 6) return;
+      this.guardando = true;
+      const r = await ACCIONES.crearAcceso(
+        this.acceso.email, this.acceso.password, this.acceso.tecnicoId, this.acceso.rol, this.acceso.nombre);
+      this.guardando = false;
+      if (!r.ok) {
+        Alpine.store('toasts').push('error', 'No se pudo crear el acceso',
+          r.cuentaCreada ? r.error + ' (la cuenta se creó, vincúlala manualmente)' : r.error);
+        return;
+      }
+      Alpine.store('toasts').push('ok', 'Acceso creado',
+        `${this.acceso.email} ya puede entrar${r.requiereConfirmacion ? ' tras confirmar su correo' : ''}.`);
+      await this.cargarCuentas();
+      this.acceso = null;
+    },
+    async revocar(t) {
+      const r = await ACCIONES.revocarAcceso(t.id);
+      if (!r.ok) { Alpine.store('toasts').push('error', 'No se pudo revocar', r.error); return; }
+      Alpine.store('toasts').push('warn', 'Acceso revocado', `${t.nombre} ya no puede entrar al sistema.`);
+      await this.cargarCuentas();
+    },
+    copiar(txt) {
+      navigator.clipboard && navigator.clipboard.writeText(txt);
+      Alpine.store('toasts').push('info', 'Copiado al portapapeles');
+    },
+
+    ROLES_TECNICO, CERTIFICACIONES,
+  };
+}
+</script>
 </head>
 <body data-page="tecnicos" data-title="Técnicos" class="bg-surface-0">
 
-<main id="page" x-data="{ filtro: '', estado: '', sel: null }"
-  x-init="const id = new URLSearchParams(location.search).get('id'); if (id && CALC.tecnico(id).id) sel = id">
+<main id="page" x-data="tecnicosPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3" x-html="UI.skel.cards(6)"></div>
@@ -34,7 +149,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative">
         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
-        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="Nombre, rol, especialidad…" x-model="filtro" aria-label="Buscar técnico">
+        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="Nombre, DNI, rol, especialidad…" x-model="filtro" aria-label="Buscar técnico">
       </div>
       <select class="ui-select" style="width:150px" x-model="estado" aria-label="Filtrar por estado">
         <option value="">Todos</option><option value="en_campo">En campo</option><option value="disponible">Disponible</option>
@@ -42,34 +157,224 @@
       </select>
       <p class="text-sm text-ink-2 ml-auto">
         <span class="font-semibold text-ink-1" x-text="$store.db.tecnicos.filter(t=>t.estado==='en_campo').length"></span> en campo ·
-        <span x-text="$store.db.tecnicos.filter(t=>t.estado==='disponible').length"></span> disponibles
+        <span x-text="$store.db.tecnicos.filter(t=>t.estado==='disponible').length"></span> disponibles ·
+        <span x-text="lista().length"></span> mostrados
       </p>
-      <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('crear')" @click="UI.protoNotice()" x-html="UI.icon('plus',15)+' Registrar técnico'"></button>
+      <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('crear')" @click="nuevo()"
+        x-html="UI.icon('plus',15)+' Registrar técnico'"></button>
     </div>
 
     <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      <template x-for="t in $store.db.tecnicos.filter(t => (!estado || t.estado===estado) && (!filtro || (t.nombre+t.rol+t.especialidad).toLowerCase().includes(filtro.toLowerCase())))" :key="t.id">
-        <article class="ui-card p-4 hover:shadow-e2 tr-200">
+      <template x-for="t in lista()" :key="t.id">
+        <article class="ui-card p-4 hover:shadow-e2 tr-200" :class="t.estado==='inactivo' && 'opacity-70'">
           <div class="flex items-start gap-3">
             <span x-html="UI.avatar(t, 40)"></span>
             <div class="min-w-0 flex-1">
               <p class="font-semibold truncate" x-text="t.nombre"></p>
               <p class="text-xs text-ink-3" x-text="t.rol + ' · ' + t.especialidad"></p>
-              <p class="mono text-xs text-ink-2 mt-1 flex items-center gap-1.5" x-html="UI.icon('phone',11) + ' ' + t.telefono"></p>
+              <p class="mono text-xs text-ink-2 mt-1 flex items-center gap-1.5" x-html="UI.icon('phone',11) + ' ' + UI.esc(t.telefono)"></p>
+              <p class="mono text-xs text-ink-3" x-show="t.dni" x-text="'DNI ' + t.dni"></p>
             </div>
-            <span x-html="UI.badge(t.estado)"></span>
+            <div class="flex flex-col items-end gap-1.5">
+              <span x-html="UI.badge(t.estado)"></span>
+              <!-- ¿Tiene cuenta de acceso? -->
+              <template x-if="!$store.ui.demo">
+                <span class="text-xs flex items-center gap-1"
+                  :style="cuentaDe(t.id) ? 'color:var(--st-completado)' : 'color:var(--ink3)'"
+                  x-html="UI.icon(cuentaDe(t.id) ? 'shield' : 'user', 11) + (cuentaDe(t.id) ? ' con acceso' : ' sin acceso')"></span>
+              </template>
+            </div>
           </div>
+
           <div class="flex flex-wrap gap-1.5 mt-3">
             <template x-for="c in t.certificaciones"><span class="text-xs bg-surface-2 border border-line rounded px-1.5 py-0.5 text-ink-2" x-text="c"></span></template>
           </div>
-          <div class="flex items-center justify-between mt-3 pt-3 border-t border-line text-xs text-ink-2">
-            <span><span class="mono font-semibold text-ink-1" x-text="CALC.actividadesDeTecnico(t.id).filter(a=>['pendiente','en_ejecucion','retrasada'].includes(a.estado)).length"></span> actividades activas · zona <span x-text="t.zona"></span></span>
-            <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="sel = t.id">Ver agenda</button>
+
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-line text-xs text-ink-2 gap-2">
+            <span class="min-w-0 truncate">
+              <span class="mono font-semibold text-ink-1" x-text="CALC.actividadesDeTecnico(t.id).filter(a=>['pendiente','en_ejecucion','retrasada'].includes(a.estado)).length"></span>
+              activas · zona <span x-text="t.zona"></span>
+            </span>
+            <span class="flex gap-1 flex-none">
+              <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="sel = t.id" x-tooltip="'Ver agenda'" aria-label="Ver agenda" x-html="UI.icon('calendar',14)"></button>
+              <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear')" @click="editar(t)" x-tooltip="'Editar ficha'" aria-label="Editar" x-html="UI.icon('edit',14)"></button>
+              <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear') && !$store.ui.demo && !cuentaDe(t.id)"
+                @click="abrirAcceso(t)" x-tooltip="'Crear cuenta de acceso'" aria-label="Crear acceso" x-html="UI.icon('shield',14)"></button>
+              <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.role==='admin' && !$store.ui.demo && cuentaDe(t.id)"
+                @click="revocar(t)" x-tooltip="`Revocar el acceso de ${cuentaDe(t.id).email}`" aria-label="Revocar acceso" x-html="UI.icon('logout',14)"></button>
+              <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear')" @click="borrando = t"
+                x-tooltip="'Dar de baja'" aria-label="Dar de baja" x-html="UI.icon('trash',14)"></button>
+            </span>
           </div>
         </article>
       </template>
     </div>
+
+    <div class="ui-card" x-show="!lista().length"
+      x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún técnico coincide con la búsqueda.'})"></div>
   </div>
+
+  <!-- ══ Modal: alta / edición de técnico ══ -->
+  <template x-if="form">
+    <div @keydown.escape.window="form=null">
+      <div class="ui-backdrop" @click="form=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="tec-t">
+        <div class="ui-modal-box" style="max-width:560px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="tec-t" x-text="form.id ? 'Editar ficha del técnico' : 'Registrar técnico'"></h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="form=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div class="sm:col-span-2">
+                <label class="ui-label" for="tc-nom">Nombre completo *</label>
+                <input id="tc-nom" class="ui-input" :class="errNombre && 'is-invalid'" x-model="form.nombre"
+                  placeholder="Ej. Elena Chumbes Ramírez" @input="tocado=true" autofocus>
+                <p class="ui-error" x-show="errNombre" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errNombre"></span></p>
+              </div>
+              <div>
+                <label class="ui-label" for="tc-dni">DNI</label>
+                <input id="tc-dni" class="ui-input mono" :class="errDni && 'is-invalid'" x-model="form.dni"
+                  maxlength="8" inputmode="numeric" placeholder="45678912" @input="tocado=true">
+                <p class="ui-error" x-show="errDni" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errDni"></span></p>
+              </div>
+              <div>
+                <label class="ui-label" for="tc-tel">Teléfono</label>
+                <input id="tc-tel" class="ui-input mono" x-model="form.telefono" placeholder="+51 9XX XXX XXX">
+              </div>
+              <div>
+                <label class="ui-label" for="tc-rol">Puesto</label>
+                <select id="tc-rol" class="ui-select" x-model="form.rol">
+                  <template x-for="r in ROLES_TECNICO" :key="r"><option :value="r" x-text="r"></option></template>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="tc-esp">Especialidad</label>
+                <input id="tc-esp" class="ui-input" x-model="form.especialidad" placeholder="Ej. Antenas y RRU">
+              </div>
+              <div>
+                <label class="ui-label" for="tc-zona">Zona de trabajo</label>
+                <input id="tc-zona" class="ui-input" x-model="form.zona" placeholder="Ej. Pisco–Chincha" list="zonas">
+                <datalist id="zonas"><option>Ica</option><option>Pisco–Chincha</option><option>Ica–Nazca</option><option>Nazca–Palpa</option></datalist>
+              </div>
+              <div>
+                <label class="ui-label" for="tc-est">Estado</label>
+                <select id="tc-est" class="ui-select" x-model="form.estado">
+                  <option value="disponible">Disponible</option><option value="en_campo">En campo</option>
+                  <option value="descanso">Descanso</option><option value="inactivo">Inactivo</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <p class="ui-label">Certificaciones</p>
+              <div class="grid sm:grid-cols-2 gap-1 border border-line rounded-md p-2 max-h-40 overflow-y-auto">
+                <template x-for="c in CERTIFICACIONES" :key="c">
+                  <label class="flex items-center gap-2 p-1.5 rounded hover:bg-surface-2 cursor-pointer text-sm">
+                    <input type="checkbox" class="ui-check" :value="c" x-model="form.certificaciones">
+                    <span x-text="c"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="form=null">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" :data-loading="guardando ? 1 : 0" @click="guardar()">
+              <span class="spin" aria-hidden="true"></span>
+              <span x-text="form.id ? 'Guardar cambios' : 'Registrar'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══ Modal: crear cuenta de acceso ══ -->
+  <template x-if="acceso">
+    <div @keydown.escape.window="acceso=null">
+      <div class="ui-backdrop" @click="acceso=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="acc-t">
+        <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="acc-t">Crear cuenta de acceso</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="acceso=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="bg-surface-2 border border-line rounded-md p-3 flex items-center gap-2.5">
+              <span x-html="UI.avatar(CALC.tecnico(acceso.tecnicoId), 32)"></span>
+              <div>
+                <p class="font-medium text-sm" x-text="acceso.nombre"></p>
+                <p class="text-xs text-ink-3" x-text="CALC.tecnico(acceso.tecnicoId).rol"></p>
+              </div>
+            </div>
+            <div>
+              <label class="ui-label" for="ac-mail">Correo de acceso *</label>
+              <input id="ac-mail" type="email" class="ui-input" :class="errEmail && 'is-invalid'"
+                x-model="acceso.email" placeholder="nombre.apellido@nettops.pe" @input="acceso.tocado=true" autofocus>
+              <p class="ui-error" x-show="errEmail" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="errEmail"></span></p>
+            </div>
+            <div>
+              <label class="ui-label" for="ac-pass">Contraseña temporal *</label>
+              <div class="flex gap-2">
+                <input id="ac-pass" class="ui-input mono" x-model="acceso.password">
+                <button class="ui-btn ui-btn-secondary ui-btn-md" @click="acceso.password = sugerirClave()"
+                  x-tooltip="'Generar otra'" aria-label="Generar otra" x-html="UI.icon('refresh',15)"></button>
+                <button class="ui-btn ui-btn-secondary ui-btn-md" @click="copiar(acceso.email + ' / ' + acceso.password)"
+                  x-tooltip="'Copiar usuario y contraseña'" aria-label="Copiar" x-html="UI.icon('file',15)"></button>
+              </div>
+              <p class="ui-help">Anótala o cópiala: se la darás al técnico para su primer ingreso.</p>
+            </div>
+            <div x-show="$store.ui.role==='admin'">
+              <label class="ui-label" for="ac-rol">Rol en el sistema</label>
+              <select id="ac-rol" class="ui-select" x-model="acceso.rol">
+                <option value="tecnico">Técnico de campo</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <p class="ui-help" x-show="acceso.rol!=='tecnico'" x-cloak
+                :style="'color:var(--st-pendiente)'">Este rol podrá aprobar cierres y gestionar catálogos.</p>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="acceso=null">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" :data-loading="guardando ? 1 : 0" @click="crearAcceso()">
+              <span class="spin" aria-hidden="true"></span><span>Crear acceso</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══ Confirmación de baja ══ -->
+  <template x-if="borrando">
+    <div @keydown.escape.window="borrando=null">
+      <div class="ui-backdrop" @click="borrando=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="baja-t">
+        <div class="ui-modal-box" style="max-width:440px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="baja-t">Dar de baja al técnico</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="borrando=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-3">
+            <p class="text-sm">Vas a dar de baja a <span class="font-semibold" x-text="borrando.nombre"></span>.</p>
+            <div class="p-3 rounded-md border text-sm" style="background:var(--st-pendiente-bg);border-color:var(--st-pendiente-bd)">
+              <p class="text-ink-2">Si ya participó en actividades, <span class="font-medium text-ink-1">no se borra</span>:
+                queda como inactivo para conservar la trazabilidad de los trabajos que hizo. Si no tiene historial, se elimina.</p>
+            </div>
+            <p class="text-sm text-ink-2" x-show="CALC.actividadesDeTecnico(borrando.id).filter(a=>['pendiente','en_ejecucion','retrasada'].includes(a.estado)).length"
+              :style="'color:var(--st-critico)'">
+              Atención: tiene actividades activas. Reasígnalas antes de darlo de baja.
+            </p>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="borrando=null">Cancelar</button>
+            <button class="ui-btn ui-btn-danger ui-btn-md" @click="confirmarBaja()">Dar de baja</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <!-- Drawer: agenda del técnico -->
   <template x-if="sel">
@@ -81,12 +386,17 @@
             <span x-html="UI.avatar(CALC.tecnico(sel), 40)"></span>
             <div>
               <p class="font-semibold" x-text="CALC.tecnico(sel).nombre"></p>
-              <p class="text-xs text-ink-3" x-text="CALC.tecnico(sel).rol + ' · DNI ' + CALC.tecnico(sel).dni"></p>
+              <p class="text-xs text-ink-3" x-text="CALC.tecnico(sel).rol + (CALC.tecnico(sel).dni ? ' · DNI ' + CALC.tecnico(sel).dni : '')"></p>
             </div>
           </div>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="sel=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
         </div>
         <div class="ui-drawer-body space-y-4">
+          <div x-show="!$store.ui.demo && cuentaDe(sel)" class="p-3 rounded-md border text-sm flex items-center gap-2"
+            style="background:var(--st-completado-bg);border-color:var(--st-completado-bd)">
+            <span style="color:var(--st-completado)" x-html="UI.icon('shield',15)"></span>
+            <span class="text-ink-2">Acceso activo: <span class="mono text-xs" x-text="cuentaDe(sel) && cuentaDe(sel).email"></span></span>
+          </div>
           <div>
             <h3 class="text-xs font-semibold uppercase tracking-wide text-ink-3 mb-2">Hoy · <span class="mono" x-text="$store.ui.hoy"></span></h3>
             <template x-for="a in CALC.actividadesDeTecnico(sel, $store.ui.hoy)" :key="a.id">

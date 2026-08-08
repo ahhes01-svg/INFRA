@@ -229,6 +229,15 @@ create table if not exists notificaciones (
   creado_en  timestamptz not null default now()
 );
 
+-- Lectura individual: una notificación global no se marca para todos cuando
+-- un solo usuario abre la campana.
+create table if not exists notificacion_lecturas (
+  notificacion_id bigint not null references notificaciones(id) on delete cascade,
+  usuario_id      uuid not null references auth.users(id) on delete cascade,
+  leida_en        timestamptz not null default now(),
+  primary key (notificacion_id, usuario_id)
+);
+
 -- ──────────────────────────────── Índices ──────────────────────────────────
 create index if not exists idx_act_fecha    on actividades(fecha);
 create index if not exists idx_act_estado   on actividades(estado);
@@ -284,8 +293,8 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'nombre', split_part(new.email, '@', 1)),
-    coalesce((new.raw_user_meta_data->>'rol')::rol_usuario, 'tecnico'),
-    new.raw_user_meta_data->>'tecnico_id',
+    'tecnico',
+    null,
     new.raw_user_meta_data->>'cargo'
   )
   on conflict (id) do nothing;
@@ -457,6 +466,14 @@ create or replace function hay_cruce(p_tecnicos text[], p_fecha date, p_ini time
 returns json language plpgsql stable security definer set search_path = public as $$
 declare r record;
 begin
+  if auth.uid() is null or (
+    not es_gestor() and not (
+      coalesce(array_length(p_tecnicos, 1), 0) = 1 and p_tecnicos[1] = mi_tecnico_id()
+    )
+  ) then
+    return json_build_object('cruce', false, 'error', 'No tienes permiso para consultar esa agenda');
+  end if;
+
   select a.id, a.h_ini, a.h_fin, t.nombre as tecnico into r
   from actividades a
   join actividad_tecnicos at on at.actividad_id = a.id
@@ -523,6 +540,7 @@ begin
   end if;
 
   select proyecto_id into pry from sitios where id = p_sitio;
+  perform pg_advisory_xact_lock(hashtext('nettops:actividad_id'));
   select coalesce(max(substring(id from 5)::int), 0) + 1 into n
     from actividades where id ~ '^ACT-[0-9]+$';
   nuevo_id := 'ACT-' || lpad(n::text, 4, '0');
@@ -562,10 +580,16 @@ create or replace function crear_incidencia(
 ) returns json language plpgsql security definer set search_path = public as $$
 declare nuevo_id text; n int; yr text := to_char(current_date, 'YYYY');
 begin
+  if auth.uid() is null or (
+    p_actividad is not null and not (es_gestor() or es_mi_actividad(p_actividad))
+  ) then
+    return json_build_object('ok', false, 'error', 'No tienes permiso para reportar esta incidencia');
+  end if;
   if coalesce(length(trim(p_titulo)), 0) < 8 then
     return json_build_object('ok', false, 'error', 'Describe la incidencia en al menos 8 caracteres');
   end if;
 
+  perform pg_advisory_xact_lock(hashtext('nettops:incidencia_id'));
   select coalesce(max(substring(id from 10)::int), 0) + 1 into n
     from incidencias where id like 'INC-' || yr || '-%';
   nuevo_id := 'INC-' || yr || '-' || lpad(n::text, 3, '0');
@@ -615,7 +639,13 @@ end $$;
 
 create or replace function atender_incidencia(inc_id text)
 returns json language plpgsql security definer set search_path = public as $$
+declare i incidencias;
 begin
+  select * into i from incidencias where id = inc_id;
+  if not found then return json_build_object('ok', false, 'error', 'Incidencia no encontrada'); end if;
+  if not (es_gestor() or i.reportado_por = mi_tecnico_id() or i.asignado_a = mi_tecnico_id()) then
+    return json_build_object('ok', false, 'error', 'No tienes permiso sobre esta incidencia');
+  end if;
   update incidencias set estado = 'en_atencion' where id = inc_id;
   perform log_hist('incidencia_actualizada', inc_id, 'Pasó ' || inc_id || ' a "en atención"');
   return json_build_object('ok', true);
@@ -686,6 +716,7 @@ begin
   if not (es_gestor() or es_mi_actividad(p_actividad)) then
     return json_build_object('ok', false, 'error', 'No tienes permiso sobre esta actividad');
   end if;
+  perform pg_advisory_xact_lock(hashtext('nettops:evidencia_id'));
   select coalesce(max(substring(id from 4)::int), 0) + 1 into n
     from evidencias where id ~ '^EV-[0-9]+$';
   nuevo_id := 'EV-' || lpad(n::text, 4, '0');
@@ -713,8 +744,18 @@ end $$;
 create or replace function marcar_notificaciones_leidas(p_id bigint default null)
 returns json language plpgsql security definer set search_path = public as $$
 begin
-  if p_id is null then update notificaciones set leida = true where not leida;
-  else update notificaciones set leida = true where id = p_id; end if;
+  if auth.uid() is null then
+    return json_build_object('ok', false, 'error', 'Debes iniciar sesión');
+  end if;
+  if p_id is null then
+    insert into notificacion_lecturas (notificacion_id, usuario_id)
+      select id, auth.uid() from notificaciones
+      on conflict (notificacion_id, usuario_id) do nothing;
+  else
+    insert into notificacion_lecturas (notificacion_id, usuario_id)
+      select id, auth.uid() from notificaciones where id = p_id
+      on conflict (notificacion_id, usuario_id) do nothing;
+  end if;
   return json_build_object('ok', true);
 end $$;
 
@@ -726,9 +767,14 @@ grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant execute on all functions in schema public to authenticated;
+revoke execute on all functions in schema public from public, anon;
+revoke execute on function handle_new_user() from authenticated;
+revoke execute on function log_hist(text, text, text) from authenticated;
+revoke execute on function notificar(text, text, text, text) from authenticated;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 alter default privileges in schema public grant usage, select on sequences to authenticated;
 alter default privileges in schema public grant execute on functions to authenticated;
+alter default privileges in schema public revoke execute on functions from public;
 
 -- ══════════════════════ Seguridad por fila (RLS) ═══════════════════════════
 alter table perfiles             enable row level security;
@@ -746,6 +792,7 @@ alter table movimientos_material enable row level security;
 alter table evidencias           enable row level security;
 alter table historial            enable row level security;
 alter table notificaciones       enable row level security;
+alter table notificacion_lecturas enable row level security;
 
 -- Limpieza para poder re-ejecutar
 do $$
@@ -762,25 +809,32 @@ create policy perfiles_upd on perfiles for update to authenticated
   using (mi_rol() = 'admin') with check (mi_rol() = 'admin');
 
 -- Catálogos: lectura para todo usuario autenticado; escritura solo gestores
-create policy clientes_sel on clientes for select to authenticated using (true);
+create policy clientes_sel on clientes for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy clientes_wr  on clientes for all    to authenticated using (mi_rol() = 'admin') with check (mi_rol() = 'admin');
 
-create policy proyectos_sel on proyectos for select to authenticated using (true);
+create policy proyectos_sel on proyectos for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy proyectos_wr  on proyectos for all    to authenticated using (es_gestor()) with check (es_gestor());
 
-create policy sitios_sel on sitios for select to authenticated using (true);
+create policy sitios_sel on sitios for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy sitios_wr  on sitios for all    to authenticated using (es_gestor()) with check (es_gestor());
 
-create policy tecnicos_sel on tecnicos for select to authenticated using (true);
+create policy tecnicos_sel on tecnicos for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy tecnicos_wr  on tecnicos for all    to authenticated using (es_gestor()) with check (es_gestor());
 
-create policy tipos_sel on tipos_actividad for select to authenticated using (true);
+create policy tipos_sel on tipos_actividad for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy tipos_wr  on tipos_actividad for all    to authenticated using (mi_rol() = 'admin') with check (mi_rol() = 'admin');
 
-create policy materiales_sel on materiales for select to authenticated using (true);
+create policy materiales_sel on materiales for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 create policy materiales_wr  on materiales for all    to authenticated using (mi_rol() = 'admin') with check (mi_rol() = 'admin');
 
-create policy movimientos_sel on movimientos_material for select to authenticated using (true);
+create policy movimientos_sel on movimientos_material for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
 
 -- Actividades: el técnico solo ve las suyas; los gestores, todas.
 create policy actividades_sel on actividades for select to authenticated
@@ -790,7 +844,8 @@ create policy actividades_upd on actividades for update to authenticated
   using (es_gestor()) with check (es_gestor());
 create policy actividades_del on actividades for delete to authenticated using (mi_rol() = 'admin');
 
-create policy at_sel on actividad_tecnicos for select to authenticated using (true);
+create policy at_sel on actividad_tecnicos for select to authenticated
+  using (es_gestor() or tecnico_id = mi_tecnico_id());
 create policy at_wr  on actividad_tecnicos for all    to authenticated using (es_gestor()) with check (es_gestor());
 
 create policy chk_sel on checklist_items for select to authenticated
@@ -798,8 +853,10 @@ create policy chk_sel on checklist_items for select to authenticated
 create policy chk_wr  on checklist_items for all to authenticated
   using (es_gestor()) with check (es_gestor());
 
-create policy inc_sel on incidencias for select to authenticated using (true);
-create policy inc_ins on incidencias for insert to authenticated with check (true);
+create policy inc_sel on incidencias for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
+create policy inc_ins on incidencias for insert to authenticated
+  with check (es_gestor() or mi_tecnico_id() is not null);
 create policy inc_upd on incidencias for update to authenticated using (es_gestor()) with check (es_gestor());
 
 create policy ev_sel on evidencias for select to authenticated
@@ -807,8 +864,12 @@ create policy ev_sel on evidencias for select to authenticated
 create policy ev_upd on evidencias for update to authenticated using (es_gestor()) with check (es_gestor());
 
 create policy hist_sel on historial for select to authenticated using (es_gestor());
-create policy notif_sel on notificaciones for select to authenticated using (true);
-create policy notif_upd on notificaciones for update to authenticated using (true) with check (true);
+create policy notif_sel on notificaciones for select to authenticated
+  using (es_gestor() or mi_tecnico_id() is not null);
+create policy notif_lecturas_sel on notificacion_lecturas for select to authenticated
+  using (usuario_id = auth.uid());
+create policy notif_lecturas_ins on notificacion_lecturas for insert to authenticated
+  with check (usuario_id = auth.uid());
 
 -- ═════════════════════ Realtime (actualización en vivo) ════════════════════
 do $$

@@ -99,8 +99,8 @@ function proyectoPage() {
           </div>
           <p class="text-sm text-ink-2 mt-1 max-w-3xl" x-text="p.descripcion"></p>
           <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-sm text-ink-2">
-            <span class="flex items-center gap-1.5" x-html="UI.icon('user',13) + ' ' + CALC.cliente(p.clienteId).razon"></span>
-            <span class="flex items-center gap-1.5" x-html="UI.icon('shield',13) + ' ' + p.supervisor"></span>
+            <span class="flex items-center gap-1.5" x-html="UI.icon('user',13) + ' ' + UI.esc(CALC.cliente(p.clienteId).razon)"></span>
+            <span class="flex items-center gap-1.5" x-html="UI.icon('shield',13) + ' ' + UI.esc(p.supervisor)"></span>
             <span class="flex items-center gap-1.5 mono text-xs" x-html="UI.icon('calendar',13) + ' ' + UI.fmt.fecha(p.inicio) + ' → ' + UI.fmt.fecha(p.fin)"></span>
           </div>
         </div>
