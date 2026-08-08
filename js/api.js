@@ -78,7 +78,7 @@ window.API = (function () {
 
   const mapMaterial = r => ({
     id: r.id, nombre: r.nombre, categoria: r.categoria, unidad: r.unidad,
-    stock: r.stock, minimo: r.minimo, almacen: r.almacen,
+    stock: r.stock, minimo: r.minimo, almacen: r.almacen, proyectoId: r.proyecto_id || '',
   });
 
   const mapMovimiento = r => ({
@@ -329,9 +329,40 @@ window.API = (function () {
     }
   }
 
+  /* ── Alta de cuentas de acceso ─────────────────────────────────────────
+   * Crear una cuenta con signUp() iniciaría sesión como el usuario nuevo y
+   * echaría al administrador. Por eso usamos un cliente aparte que no guarda
+   * sesión: la cuenta se crea y el admin sigue dentro.
+   *
+   * El rol NO viaja aquí: toda cuenta nace como técnico sin permisos, y solo
+   * después un gestor autenticado la eleva con vincular_cuenta_tecnico().
+   * ------------------------------------------------------------------------*/
+  async function crearCuenta(email, password, nombre) {
+    if (modoDemo) return { ok: false, error: 'Modo demo: no se pueden crear cuentas reales' };
+    const aparte = window.supabase.createClient(cfg.url, cfg.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const { data, error } = await aparte.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { nombre } },
+    });
+    if (error) return { ok: false, error: traducirError(error) };
+    // Sin confirmación de correo, la cuenta queda lista de inmediato
+    const requiereConfirmacion = !data.session && !!data.user && !data.user.confirmed_at;
+    return { ok: true, id: data.user ? data.user.id : null, requiereConfirmacion };
+  }
+
+  async function cuentasDeTecnicos() {
+    if (modoDemo) return [];
+    const { data, error } = await sb.rpc('tecnicos_con_cuenta');
+    return error ? [] : (data || []);
+  }
+
   return {
     iniciar, entrar, salir, sesionActiva, miPerfil, estaEnDemo,
     cargarTodo, refrescar, rpc, subirEvidencia, urlEvidencia,
+    crearCuenta, cuentasDeTecnicos,
     get cliente() { return sb; },
   };
 })();
@@ -501,6 +532,115 @@ window.API = (function () {
       const r = await API.rpc('ingresar_material', { p_material: materialId, p_cantidad: cantidad });
       if (r && r.ok) await API.refrescar();
       return r || { ok: false };
+    },
+
+    /* ── Gestión de catálogos (solo admin/supervisor) ── */
+    async guardarTecnico(t) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (t.id) { Object.assign(db.tecnicos.find(x => x.id === t.id) || {}, t); }
+        else {
+          const n = db.tecnicos.length + 1;
+          db.tecnicos.push({ ...t, id: 'tec-' + String(n).padStart(2, '0'), certificaciones: t.certificaciones || [] });
+        }
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !t.id };
+      }
+      const r = await API.rpc('guardar_tecnico', {
+        p_id: t.id || null, p_nombre: t.nombre, p_dni: t.dni || '', p_rol: t.rol,
+        p_especialidad: t.especialidad, p_telefono: t.telefono, p_zona: t.zona,
+        p_estado: t.estado || 'disponible', p_certificaciones: t.certificaciones || [],
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarTecnico(id) {
+      if (enDemo()) {
+        window.DB.tecnicos = window.DB.tecnicos.filter(t => t.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, modo: 'eliminado' };
+      }
+      const r = await API.rpc('eliminar_tecnico', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    // Crea la cuenta de acceso y la vincula con la ficha del técnico
+    async crearAcceso(email, password, tecnicoId, rol = 'tecnico', nombre = '') {
+      if (enDemo()) return { ok: false, error: 'Modo demo: no se pueden crear cuentas reales' };
+      const c = await API.crearCuenta(email, password, nombre);
+      if (!c.ok) return c;
+      const v = await API.rpc('vincular_cuenta_tecnico', {
+        p_email: email, p_tecnico_id: tecnicoId || null, p_rol: rol,
+      });
+      if (v && !v.ok) return { ok: false, error: v.error, cuentaCreada: true };
+      await API.refrescar();
+      return { ok: true, requiereConfirmacion: c.requiereConfirmacion };
+    },
+
+    async revocarAcceso(tecnicoId) {
+      if (enDemo()) return { ok: false, error: 'Modo demo' };
+      const r = await API.rpc('desvincular_cuenta', { p_tecnico_id: tecnicoId });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false };
+    },
+
+    async guardarSitio(s) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (s.id) Object.assign(db.sitios.find(x => x.id === s.id) || {}, s);
+        else db.sitios.push({ ...s, id: 'st-' + (db.sitios.length + 1) });
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !s.id };
+      }
+      const r = await API.rpc('guardar_sitio', {
+        p_id: s.id || null, p_codigo: s.codigo, p_nombre: s.nombre, p_direccion: s.direccion,
+        p_distrito: s.distrito, p_provincia: s.provincia, p_lat: Number(s.lat), p_lng: Number(s.lng),
+        p_tipo: s.tipo, p_altura: Number(s.altura) || 0, p_tecnologias: s.tecnologias || [],
+        p_energia: s.energia, p_proyecto_id: s.proyectoId || null, p_estado: s.estado || 'planificado',
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarSitio(id) {
+      if (enDemo()) {
+        window.DB.sitios = window.DB.sitios.filter(s => s.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true };
+      }
+      const r = await API.rpc('eliminar_sitio', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async guardarMaterial(m) {
+      if (enDemo()) {
+        const db = window.DB;
+        if (m.id) Object.assign(db.materiales.find(x => x.id === m.id) || {}, m);
+        else db.materiales.push({ ...m, id: 'MAT-' + String(db.materiales.length + 1).padStart(3, '0') });
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true, creado: !m.id };
+      }
+      const r = await API.rpc('guardar_material', {
+        p_id: m.id || null, p_nombre: m.nombre, p_categoria: m.categoria, p_unidad: m.unidad,
+        p_stock: Number(m.stock) || 0, p_minimo: Number(m.minimo) || 0,
+        p_almacen: m.almacen, p_proyecto_id: m.proyectoId || null,
+      });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
+    },
+
+    async eliminarMaterial(id) {
+      if (enDemo()) {
+        window.DB.materiales = window.DB.materiales.filter(m => m.id !== id);
+        window.dispatchEvent(new CustomEvent('app:data'));
+        return { ok: true };
+      }
+      const r = await API.rpc('eliminar_material', { p_id: id });
+      if (r && r.ok) await API.refrescar();
+      return r || { ok: false, error: 'error de conexión' };
     },
 
     async marcarLeida(id) {
