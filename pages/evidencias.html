@@ -50,7 +50,7 @@ function evidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'camera', title:'Aún no hay evidencias', desc:'Cuando la cuadrilla suba fotos y actas desde campo aparecerán en esta galería, agrupadas por actividad.', action: UI.btn({label:'Subir evidencia', icon:'upload'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

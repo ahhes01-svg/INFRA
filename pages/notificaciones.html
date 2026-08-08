@@ -31,7 +31,7 @@
     <div class="ui-card mt-8 max-w-3xl" x-html="UI.emptyState({ icon:'bell', title:'Bandeja al día', desc:'No tienes notificaciones. Los eventos de la operación (incidencias, retrasos, evidencias) llegarán aquí.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo sincronizar la bandeja de notificaciones.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo sincronizar la bandeja de notificaciones.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="max-w-3xl space-y-3">

@@ -35,9 +35,16 @@ function jornadaPage() {
       Alpine.store('toasts').push('info', 'Jornada iniciada', `${CALC.sitio(a.sitioId).codigo} · hora registrada.`);
     },
     finalizar(a) {
-      ACCIONES.completarActividad(a.id, this.yo.nombre);
+      const r = ACCIONES.finalizarActividad(a.id, this.yo.nombre);
+      if (!r.ok) {
+        Alpine.store('toasts').push('error', 'Aún no puedes cerrar', 'Falta: ' + r.faltantes.join(' · '));
+        // Lleva al técnico directo a lo que falta
+        if (r.faltantes.some(f => f.includes('checklist'))) this.abrirAvance(a);
+        else this.abrirEvidencia(a);
+        return;
+      }
       this.hoja = null;
-      Alpine.store('toasts').push('ok', '¡Actividad finalizada!', 'El supervisor verá el cierre al instante.');
+      Alpine.store('toasts').push('ok', 'Cierre enviado', 'Tu supervisor lo revisará y aprobará.');
     },
     abrirAvance(a) { this.actSel = a.id; this.hoja = 'avance'; },
     abrirEvidencia(a) { this.actSel = a.id; this.hoja = 'evidencia'; },
@@ -81,7 +88,7 @@ function jornadaPage() {
     <div class="ui-card mt-6" x-html="UI.emptyState({ icon:'calendar', title:'Hoy no tienes actividades', desc:'Disfruta el descanso o consulta con tu supervisor. Cuando te asignen trabajo aparecerá aquí.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -112,7 +119,7 @@ function jornadaPage() {
         <div class="mt-3" x-show="act.checklist.length || act.estado==='en_ejecucion'" x-html="UI.progress(CALC.avanceActividad(act))"></div>
 
         <!-- Acciones grandes (44px+) -->
-        <div class="grid gap-2 mt-4" x-show="act.estado!=='completada' && act.estado!=='cancelada'">
+        <div class="grid gap-2 mt-4" x-show="!['completada','cancelada','en_revision'].includes(act.estado)">
           <button class="ui-btn ui-btn-primary ui-btn-lg w-full" x-show="['pendiente','retrasada'].includes(act.estado)"
             @click="iniciar(act)" x-html="UI.icon('play',17)+' Iniciar actividad'"></button>
           <template x-if="act.estado==='en_ejecucion'">
@@ -126,6 +133,8 @@ function jornadaPage() {
         </div>
         <p class="text-sm text-ink-2 mt-3 flex items-center gap-1.5" x-show="act.estado==='completada'"
           x-html="UI.icon('checkCircle',15) + ` Trabajo cerrado ${act.finReal ? 'a las <span class=&quot;mono&quot;>' + act.finReal + '</span>' : ''}`"></p>
+        <p class="text-sm mt-3 flex items-center gap-1.5" style="color:var(--st-pendiente)" x-show="act.estado==='en_revision'"
+          x-html="UI.icon('clock',15) + ' Cierre enviado — esperando aprobación del supervisor'"></p>
       </article>
     </template>
 

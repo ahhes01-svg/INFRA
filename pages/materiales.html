@@ -15,7 +15,39 @@
 </head>
 <body data-page="materiales" data-title="Materiales" class="bg-surface-0">
 
-<main id="page" x-data="{ menu: null, mx: 0, my: 0 }">
+<script>
+function materialesPage() {
+  return {
+    menu: null, mx: 0, my: 0,
+    kardex: null,              // materialId del drawer de kardex
+    despacho: null,            // { matId, cantidad, actividadId }
+    ingreso: null,             // { matId, cantidad }
+    mat(id) { return Alpine.store('db').materiales.find(m => m.id === id) || {}; },
+    get actividadesActivas() {
+      return Alpine.store('db').actividades.filter(a => ['pendiente', 'en_ejecucion', 'retrasada'].includes(a.estado));
+    },
+    abrirDespacho(id) { this.despacho = { matId: id, cantidad: 1, actividadId: this.actividadesActivas[0]?.id || '' }; this.menu = null; },
+    abrirIngreso(id) { this.ingreso = { matId: id, cantidad: 1 }; this.menu = null; },
+    confirmarDespacho() {
+      const d = this.despacho;
+      const r = ACCIONES.despacharMaterial(d.matId, d.cantidad, d.actividadId, Alpine.store('db').sesion.usuario);
+      if (!r.ok) { Alpine.store('toasts').push('error', 'Despacho rechazado', r.error); return; }
+      const m = this.mat(d.matId);
+      Alpine.store('toasts').push('ok', 'Material despachado',
+        `${d.cantidad} ${m.unidad} de ${m.nombre} → ${d.actividadId}. Stock restante: ${m.stock}.`);
+      this.despacho = null;
+    },
+    confirmarIngreso() {
+      const i = this.ingreso;
+      ACCIONES.ingresarMaterial(i.matId, i.cantidad, Alpine.store('db').sesion.usuario);
+      Alpine.store('toasts').push('ok', 'Ingreso registrado', `Stock actual: ${this.mat(i.matId).stock} ${this.mat(i.matId).unidad}.`);
+      this.ingreso = null;
+    },
+  };
+}
+</script>
+
+<main id="page" x-data="materialesPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -27,7 +59,7 @@
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'box', title:'Almacén sin materiales', desc:'Registra los materiales y repuestos para controlar stock y mínimos.', action: UI.btn({label:'Registrar material', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El sistema de almacén no respondió (ERP fuera de línea).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El sistema de almacén no respondió (ERP fuera de línea).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4"
@@ -106,12 +138,124 @@
   <template x-if="menu">
     <div class="fixed inset-0 z-50" @click="menu=null" @keydown.escape.window="menu=null">
       <div class="ui-menu shadow-e2" :style="`left:${mx}px;top:${my}px`" role="menu">
-        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('arrowUp',14)"></span> Registrar ingreso</button>
-        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('arrowDown',14)"></span> Despachar a sitio</button>
-        <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('file',14)"></span> Ver kardex</button>
+        <button class="ui-menu-item" role="menuitem" @click="abrirIngreso(menu)"><span x-html="UI.icon('arrowUp',14)"></span> Registrar ingreso</button>
+        <button class="ui-menu-item" role="menuitem" @click="abrirDespacho(menu)"><span x-html="UI.icon('arrowDown',14)"></span> Despachar a actividad</button>
+        <button class="ui-menu-item" role="menuitem" @click="kardex=menu; menu=null"><span x-html="UI.icon('file',14)"></span> Ver kardex</button>
         <div class="ui-menu-sep"></div>
         <button class="ui-menu-item" role="menuitem" @click="UI.protoNotice(); menu=null"><span x-html="UI.icon('refresh',14)"></span> Solicitar reposición</button>
       </div>
+    </div>
+  </template>
+
+  <!-- Modal: despachar a actividad (descuenta stock, alimenta kardex) -->
+  <template x-if="despacho">
+    <div @keydown.escape.window="despacho=null">
+      <div class="ui-backdrop" @click="despacho=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="dp-t">
+        <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="dp-t">Despachar material</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="despacho=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="bg-surface-2 border border-line rounded-md p-3">
+              <p class="font-medium text-sm" x-text="mat(despacho.matId).nombre"></p>
+              <p class="mono text-xs text-ink-3 mt-0.5"
+                x-text="`${despacho.matId} · stock ${mat(despacho.matId).stock} ${mat(despacho.matId).unidad} · ${mat(despacho.matId).almacen}`"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="ui-label" for="dp-cant">Cantidad *</label>
+                <input id="dp-cant" type="number" min="1" :max="mat(despacho.matId).stock" class="ui-input mono" x-model.number="despacho.cantidad">
+                <p class="ui-error" x-show="despacho.cantidad > mat(despacho.matId).stock" x-cloak>
+                  <span x-html="UI.icon('alertCircle',12)"></span>Supera el stock disponible</p>
+              </div>
+              <div>
+                <label class="ui-label" for="dp-act">Actividad destino</label>
+                <select id="dp-act" class="ui-select mono text-xs" x-model="despacho.actividadId">
+                  <template x-for="a in actividadesActivas" :key="a.id">
+                    <option :value="a.id" x-text="a.id + ' · ' + CALC.sitio(a.sitioId).codigo"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+            <p class="ui-help">El despacho descuenta stock, se registra en el kardex y aparece en la ficha del sitio destino.</p>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="despacho=null">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md"
+              :disabled="!despacho.actividadId || despacho.cantidad < 1 || despacho.cantidad > mat(despacho.matId).stock"
+              @click="confirmarDespacho()">Despachar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal: registrar ingreso -->
+  <template x-if="ingreso">
+    <div @keydown.escape.window="ingreso=null">
+      <div class="ui-backdrop" @click="ingreso=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="in-t">
+        <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="in-t">Registrar ingreso</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="ingreso=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div class="bg-surface-2 border border-line rounded-md p-3">
+              <p class="font-medium text-sm" x-text="mat(ingreso.matId).nombre"></p>
+              <p class="mono text-xs text-ink-3 mt-0.5" x-text="`${ingreso.matId} · stock actual ${mat(ingreso.matId).stock} ${mat(ingreso.matId).unidad}`"></p>
+            </div>
+            <div>
+              <label class="ui-label" for="in-cant">Cantidad que ingresa *</label>
+              <input id="in-cant" type="number" min="1" class="ui-input mono" x-model.number="ingreso.cantidad">
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="ingreso=null">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" :disabled="ingreso.cantidad < 1" @click="confirmarIngreso()">Registrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Drawer: kardex del material -->
+  <template x-if="kardex">
+    <div @keydown.escape.window="kardex=null">
+      <div class="ui-backdrop" @click="kardex=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <aside class="ui-drawer" x-transition:enter="slide-enter" x-transition:enter-start="slide-enter-start" role="dialog" aria-modal="true" aria-label="Kardex del material">
+        <div class="ui-drawer-head">
+          <div>
+            <p class="font-semibold" x-text="mat(kardex).nombre"></p>
+            <p class="mono text-xs text-ink-3" x-text="`${kardex} · stock ${mat(kardex).stock} ${mat(kardex).unidad} · mínimo ${mat(kardex).minimo}`"></p>
+          </div>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="kardex=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+        </div>
+        <div class="ui-drawer-body">
+          <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide mb-3">Movimientos</p>
+          <div class="space-y-2.5" x-show="CALC.movimientosDeMaterial(kardex).length">
+            <template x-for="mv in CALC.movimientosDeMaterial(kardex)" :key="mv.id">
+              <div class="flex items-start gap-2.5 border border-line rounded-md p-3">
+                <span :style="`color:var(--st-${mv.tipo==='ingreso' ? 'completado' : 'ejecucion'})`"
+                  x-html="UI.icon(mv.tipo==='ingreso' ? 'arrowUp' : 'arrowDown', 15)"></span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium" x-text="(mv.tipo==='ingreso' ? 'Ingreso' : 'Despacho') + ' de ' + mv.cantidad + ' ' + mat(kardex).unidad"></p>
+                  <p class="text-xs text-ink-2" x-show="mv.actividadId"
+                    x-text="mv.actividadId + ' · ' + (CALC.sitio(mv.sitioId).codigo || '')"></p>
+                  <p class="mono text-xs text-ink-3 mt-0.5" x-text="`${UI.fmt.fecha(mv.fecha)} ${mv.hora} · ${mv.usuario}`"></p>
+                </div>
+              </div>
+            </template>
+          </div>
+          <p class="text-sm text-ink-3" x-show="!CALC.movimientosDeMaterial(kardex).length">Sin movimientos registrados para este material.</p>
+        </div>
+        <div class="ui-drawer-foot">
+          <button class="ui-btn ui-btn-secondary ui-btn-md" @click="abrirIngreso(kardex); kardex=null" x-html="UI.icon('arrowUp',14)+' Ingreso'"></button>
+          <button class="ui-btn ui-btn-primary ui-btn-md" @click="abrirDespacho(kardex); kardex=null" x-html="UI.icon('arrowDown',14)+' Despachar'"></button>
+        </div>
+      </aside>
     </div>
   </template>
 </main>

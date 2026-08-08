@@ -213,8 +213,74 @@
   @keyframes evShake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
   .ev-rechazo{ animation:evShake .25s ease-out; outline:2px dashed var(--st-critico); }
 
+  /* ---------- Búsqueda global (Ctrl+K) ---------- */
+  .ck-modal{ position:fixed; inset:0; z-index:80; display:flex; justify-content:center;
+    align-items:flex-start; padding:12vh 16px 16px; }
+  .ck-box{ width:100%; max-width:560px; background:var(--s1); border:1px solid var(--line);
+    border-radius:10px; box-shadow:0 12px 32px rgba(2,6,23,.22); overflow:hidden; }
+  .ck-input-row{ display:flex; align-items:center; gap:10px; padding:0 14px; border-bottom:1px solid var(--line); color:var(--ink3); }
+  .ck-input-row input{ flex:1; height:48px; background:none; border:none; outline:none;
+    font-size:14px; color:var(--ink1); }
+  .ck-list{ max-height:min(420px, 55vh); overflow-y:auto; padding:6px; }
+  .ck-group{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink3); padding:8px 10px 4px; }
+  .ck-item{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:8px 10px;
+    border-radius:6px; border:none; background:none; cursor:pointer; color:var(--ink1); text-decoration:none; }
+  .ck-item.is-active, .ck-item:hover{ background:var(--s2); }
+  .ck-item .ck-ico{ color:var(--ink3); flex:none; display:inline-flex; }
+  .ck-item .ck-t{ font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ck-item .ck-s{ font-size:11px; color:var(--ink3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ck-item .ck-right{ margin-left:auto; flex:none; }
+  .ck-empty{ padding:24px; text-align:center; font-size:13px; color:var(--ink3); }
+  .ck-foot{ display:flex; gap:14px; padding:8px 14px; border-top:1px solid var(--line);
+    font-size:11px; color:var(--ink3); background:var(--s2); }
+  .ck-kbd{ font-family:'JetBrains Mono',monospace; font-size:10px; border:1px solid var(--line-strong);
+    border-bottom-width:2px; border-radius:4px; padding:0 5px; background:var(--s1); }
+  .ck-trigger{ display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 10px;
+    border:1px solid var(--line-strong); border-radius:6px; background:var(--s1); color:var(--ink3);
+    font-size:13px; cursor:pointer; transition:border-color .15s ease-out,color .15s ease-out; }
+  .ck-trigger:hover{ color:var(--ink1); border-color:var(--ink3); }
+  @media (max-width:899px){ .ck-trigger .ck-lbl{ display:none; } .ck-trigger{ padding:0 8px; } }
+
+  /* ---------- Kanban de actividades ---------- */
+  .kb-board{ display:grid; grid-template-columns:repeat(4, minmax(240px, 1fr)); gap:12px;
+    overflow-x:auto; align-items:start; }
+  @media (max-width:1023px){ .kb-board{ grid-template-columns:repeat(4, 260px); } }
+  .kb-col{ background:var(--s2); border:1px solid var(--line); border-radius:8px; min-height:200px;
+    display:flex; flex-direction:column; transition:background .15s ease-out, border-color .15s ease-out; }
+  .kb-col.is-over{ border-color:var(--focus); background:var(--st-ejecucion-bg); }
+  .kb-col.is-forbidden{ border-color:var(--st-critico); background:var(--st-critico-bg); }
+  .kb-head{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  .kb-head .kb-count{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink3); }
+  .kb-cards{ padding:8px; display:flex; flex-direction:column; gap:8px; flex:1; min-height:80px; }
+  .kb-card{ background:var(--s1); border:1px solid var(--line); border-radius:6px; padding:10px;
+    cursor:grab; box-shadow:0 1px 2px rgba(2,6,23,.06); transition:box-shadow .15s ease-out, transform .15s ease-out, opacity .15s ease-out; }
+  .kb-card:hover{ box-shadow:0 4px 12px rgba(2,6,23,.10); }
+  .kb-card.is-dragging{ opacity:.4; transform:scale(.98); cursor:grabbing; }
+  .kb-card .kb-id{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink3); }
+  .kb-card .kb-t{ font-size:13px; font-weight:500; margin-top:2px; }
+  .kb-card .kb-meta{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:8px; }
+
+  /* ---------- Timeline de cuadrillas ---------- */
+  .tl-wrap{ overflow-x:auto; }
+  .tl-grid{ min-width:900px; }
+  .tl-row{ display:flex; align-items:center; border-bottom:1px solid var(--line); min-height:52px; }
+  .tl-row:last-child{ border-bottom:none; }
+  .tl-tec{ width:200px; flex:none; display:flex; align-items:center; gap:8px; padding:6px 10px; }
+  .tl-lane{ position:relative; flex:1; height:36px; background:
+    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px calc(100% / 14)); }
+  .tl-block{ position:absolute; top:4px; bottom:4px; border-radius:5px; padding:2px 6px; overflow:hidden;
+    font-size:10px; font-family:'JetBrains Mono',monospace; white-space:nowrap; color:var(--ink1);
+    border-left:3px solid; cursor:pointer; transition:filter .15s ease-out; }
+  .tl-block:hover{ filter:brightness(.95); }
+  .tl-block.is-cruce{ outline:2px dashed var(--st-critico); outline-offset:1px; z-index:2; }
+  .tl-hours{ display:flex; margin-left:200px; }
+  .tl-hours span{ flex:1; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--ink3);
+    border-left:1px solid var(--line); padding:2px 0 2px 4px; }
+
   /* ---------- Leaflet: adaptación al sistema ---------- */
-  .leaflet-container{ background:var(--s2); border-radius:8px; font-family:'Inter',sans-serif; }
+  .leaflet-container{ background:var(--s2); border-radius:8px; font-family:'Inter',sans-serif;
+    isolation:isolate; z-index:0; }
   .dark .leaflet-tile{ filter:brightness(.7) contrast(1.1) saturate(.6); }
   .leaflet-popup-content-wrapper, .leaflet-popup-tip{ background:var(--s1); color:var(--ink1); box-shadow:0 4px 12px rgba(2,6,23,.2); }
   .bts-pin{ display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px;
@@ -652,6 +718,63 @@ document.addEventListener('alpine:init', () => {
     },
     get valid() { return this.touched && !this.error && String(this.value).trim() !== ''; },
     get invalid() { return this.touched && !!this.error; },
+  }));
+
+  /* --- Búsqueda global (Ctrl+K) --- */
+  Alpine.data('cmdk', () => ({
+    open: false, q: '', idx: 0,
+    init() {
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); this.show(); }
+      });
+      window.addEventListener('app:cmdk', () => this.show());
+    },
+    show() { this.open = true; this.q = ''; this.idx = 0; this.$nextTick(() => this.$refs.inp && this.$refs.inp.focus()); },
+    hide() { this.open = false; },
+    href(page) { return Alpine.store('ui').href(page); },
+    norm(s) { return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); },
+    get grupos() {
+      const db = Alpine.store('db');
+      const q = this.norm(this.q.trim());
+      if (!q) {
+        return [{
+          nombre: 'Accesos rápidos',
+          items: Alpine.store('ui').nav().slice(0, 8).map(n => ({ icon: n.icon, t: n.label, s: 'Ir al módulo', href: this.href(n.id) })),
+        }];
+      }
+      const hit = (...campos) => campos.some(c => this.norm(c || '').includes(q));
+      const g = [];
+      const sitios = db.sitios.filter(s => hit(s.codigo, s.nombre, s.distrito)).slice(0, 5)
+        .map(s => ({ icon: 'tower', t: s.codigo, s: `${s.nombre} · ${s.distrito}`, badge: s.estado, href: this.href('bts-detalle') + '&id=' + s.id }));
+      if (sitios.length) g.push({ nombre: 'BTS / Sitios', items: sitios });
+      const acts = db.actividades.filter(a => hit(a.id, CALC.tipo(a.tipoId).nombre, CALC.sitio(a.sitioId).codigo)).slice(0, 5)
+        .map(a => ({ icon: 'clipboard', t: `${a.id} — ${CALC.tipo(a.tipoId).nombre}`, s: `${CALC.sitio(a.sitioId).codigo} · ${a.fecha}`, badge: a.estado, href: this.href('actividades') + '&id=' + a.id }));
+      if (acts.length) g.push({ nombre: 'Actividades', items: acts });
+      const tecs = db.tecnicos.filter(t => hit(t.nombre, t.rol, t.especialidad)).slice(0, 5)
+        .map(t => ({ icon: 'users', t: t.nombre, s: t.rol + ' · ' + t.zona, badge: t.estado, href: this.href('tecnicos') + '&id=' + t.id }));
+      if (tecs.length) g.push({ nombre: 'Técnicos', items: tecs });
+      const prys = db.proyectos.filter(p => hit(p.codigo, p.nombre)).slice(0, 3)
+        .map(p => ({ icon: 'folder', t: p.codigo, s: p.nombre, badge: p.estado, href: this.href('proyecto-detalle') + '&id=' + p.id }));
+      if (prys.length) g.push({ nombre: 'Proyectos', items: prys });
+      const incs = db.incidencias.filter(i => hit(i.id, i.titulo)).slice(0, 4)
+        .map(i => ({ icon: 'alert', t: `${i.id} — ${i.titulo}`, s: CALC.sitio(i.sitioId).codigo, badge: i.severidad, href: this.href('incidencias') }));
+      if (incs.length) g.push({ nombre: 'Incidencias', items: incs });
+      const mats = db.materiales.filter(m => hit(m.id, m.nombre)).slice(0, 4)
+        .map(m => ({ icon: 'box', t: `${m.id} — ${m.nombre}`, s: `${m.stock} ${m.unidad} en ${m.almacen}`, badge: CALC.estadoMaterial(m), href: this.href('materiales') }));
+      if (mats.length) g.push({ nombre: 'Materiales', items: mats });
+      return g;
+    },
+    get planos() { return this.grupos.flatMap(g => g.items); },
+    mover(d) {
+      const n = this.planos.length; if (!n) return;
+      this.idx = (this.idx + d + n) % n;
+      this.$nextTick(() => {
+        const el = this.$root.querySelector('.ck-item.is-active');
+        el && el.scrollIntoView({ block: 'nearest' });
+      });
+    },
+    ir() { const it = this.planos[this.idx]; if (it) location.href = it.href; },
+    idxDe(item) { return this.planos.indexOf(item); },
   }));
 
   /* --- Directiva x-tooltip --- */

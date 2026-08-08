@@ -48,6 +48,24 @@ datos → módulos. Ningún módulo define estilos propios.
 
 ## Qué probar
 
+- **Búsqueda global**: `Ctrl+K` (o el botón "Buscar…" del navbar) desde
+  cualquier pantalla — salta a sitios, actividades, técnicos, proyectos,
+  incidencias y materiales con navegación por teclado.
+- **Kanban de actividades** (Actividades → Kanban): arrastra tarjetas por el
+  flujo Pendiente → En ejecución → En revisión → Completada; los movimientos
+  ilegales se rechazan con aviso.
+- **Cierre validado + aprobación**: no se puede Finalizar sin checklist
+  completo y fotos de antes/después; el cierre queda "En revisión" y el
+  supervisor lo aprueba o lo rechaza con motivo (Supervisión → "Cierres por
+  aprobar"; prueba rechazar ACT-0012, que llegó sin fotos).
+- **Timeline de cuadrillas** (Agenda → Cuadrillas): filas por técnico, de
+  06:00 a 20:00; los bloques con borde rojo punteado se cruzan (Marco y
+  Milagros lo demuestran el sábado 08).
+- **Mapa completo** (BTS/Sitios → Mapa completo): clúster de 60 sitios,
+  filtros por estado/proyecto y ruta del día de un técnico numerada.
+- **Kardex conectado** (Materiales → clic derecho en una fila): despachar
+  descuenta stock, alimenta el kardex y aparece en la ficha del sitio.
+
 - **Reactividad en memoria**: completa una actividad desde el Dashboard o el
   drawer de Actividades — sube el avance del BTS y del proyecto, las cifras
   del dashboard cuentan al nuevo valor, los gráficos se redibujan y el

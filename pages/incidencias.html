@@ -52,7 +52,7 @@ function incidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'checkCircle', title:'Sin incidencias reportadas', desc:'Buena señal: no hay hallazgos abiertos en ningún sitio. Las incidencias que reporte la cuadrilla aparecerán aquí.', action: UI.btn({label:'Registrar incidencia', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

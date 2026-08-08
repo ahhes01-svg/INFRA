@@ -52,8 +52,12 @@ function proyectoPage() {
         ACCIONES.iniciarActividad(a.id, u);
         Alpine.store('toasts').push('info', 'Actividad iniciada', a.id);
       } else if (a.estado === 'en_ejecucion') {
-        ACCIONES.completarActividad(a.id, u);
-        Alpine.store('toasts').push('ok', 'Actividad completada', `Avance del proyecto: ${CALC.avanceProyecto(this.id)}%`);
+        const r = ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + r.faltantes.join(' · '));
+        else Alpine.store('toasts').push('ok', 'Cierre enviado a revisión', a.id);
+      } else if (a.estado === 'en_revision' && Alpine.store('ui').puede('aprobar')) {
+        ACCIONES.aprobarActividad(a.id, u);
+        Alpine.store('toasts').push('ok', 'Cierre aprobado', `Avance del proyecto: ${CALC.avanceProyecto(this.id)}%`);
       }
     },
   };
@@ -71,10 +75,10 @@ function proyectoPage() {
     </div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el proyecto solicitado.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el proyecto solicitado.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
-    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'folder', title:'Proyecto no encontrado', desc:'El proyecto pudo haber sido archivado o el enlace es incorrecto.', action: UI.btn({label:'Ir a proyectos', attrs:`onclick=\"location.href='proyectos.html'\"`}) })"></div>
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'folder', title:'Proyecto no encontrado', desc:'El proyecto pudo haber sido archivado o el enlace es incorrecto.', action: UI.btn({label:'Ir a proyectos', attrs:`onclick=&quot;location.href='proyectos.html'&quot;`}) })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -123,7 +127,7 @@ function proyectoPage() {
       <div class="ui-card p-5">
         <h2 class="text-sm font-semibold mb-3">Estado de actividades</h2>
         <div class="space-y-2.5">
-          <template x-for="e in [['completada'],['en_ejecucion'],['pendiente'],['retrasada'],['cancelada']]" :key="e[0]">
+          <template x-for="e in [['completada'],['en_revision'],['en_ejecucion'],['pendiente'],['retrasada'],['cancelada']]" :key="e[0]">
             <div class="flex items-center gap-3">
               <span class="w-32" x-html="UI.badge(e[0])"></span>
               <div class="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
@@ -210,7 +214,8 @@ function proyectoPage() {
                 <td x-html="UI.progress(CALC.avanceActividad(a), {estado: a.estado==='retrasada' ? 'critico' : ''})"></td>
                 <td class="row-actions text-right whitespace-nowrap">
                   <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['pendiente','retrasada'].includes(a.estado) && $store.ui.puede('campo')" @click="accion(a)" x-html="UI.icon('play',12)+' Iniciar'"></button>
-                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'" @click="accion(a)" x-html="UI.icon('check',12)+' Completar'"></button>
+                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'" @click="accion(a)" x-html="UI.icon('check',12)+' Finalizar'"></button>
+                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_revision' && $store.ui.puede('aprobar')" @click="accion(a)" x-html="UI.icon('check',12)+' Aprobar'"></button>
                   <a :href="$store.ui.href('actividades') + '&id=' + a.id" class="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Ver" x-html="UI.icon('eye',14)"></a>
                 </td>
               </tr>
@@ -259,7 +264,7 @@ function proyectoPage() {
           </div>
         </template>
       </div>
-      <div class="flex gap-3 mt-4 flex-wrap" x-html="['completada','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
+      <div class="flex gap-3 mt-4 flex-wrap" x-html="['completada','en_revision','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
     </section>
 
     <!-- ── Materiales ── -->

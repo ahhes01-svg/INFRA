@@ -32,7 +32,7 @@
   <template x-if="$store.ui.view==='error'">
     <div class="ui-card mt-8" x-html="UI.errorState({
       desc:'El listado de proyectos no respondió (HTTP 502 del gateway).',
-      retryAttr:`@click=\"$store.ui.setView('data')\"`
+      retryAttr:`@click=&quot;$store.ui.setView('data')&quot;`
     })"></div>
   </template>
 

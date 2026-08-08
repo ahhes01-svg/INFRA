@@ -39,6 +39,11 @@ function controlPage() {
     cambiarEstado(a, nuevo) {
       const u = Alpine.store('db').sesion.usuario;
       if (nuevo === 'en_ejecucion' && a.estado !== 'en_ejecucion') ACCIONES.iniciarActividad(a.id, u);
+      else if (nuevo === 'en_revision' && a.estado !== 'en_revision') {
+        const r = ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) { Alpine.store('toasts').push('error', 'No se puede enviar a revisión', 'Falta: ' + r.faltantes.join(' · ')); return; }
+      }
+      // "Completada" directa es el atajo del administrador (salta la revisión)
       else if (nuevo === 'completada' && a.estado !== 'completada') ACCIONES.completarActividad(a.id, u);
       else { a.estado = nuevo; window.dispatchEvent(new CustomEvent('app:data')); }
       Alpine.store('toasts').push('info', 'Estado actualizado', `${a.id} → ${UI.estadoInfo(nuevo).label}`);
@@ -64,10 +69,10 @@ function controlPage() {
       </div>
     </template>
     <template x-if="$store.ui.view==='empty'">
-      <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'grid', title:'Sin partes diarios en el rango', desc:'No hay actividades registradas para los filtros elegidos. Cambia el rango de fechas o programa trabajo en la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=\"location.href='agenda.html'\"`}) })"></div>
+      <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'grid', title:'Sin partes diarios en el rango', desc:'No hay actividades registradas para los filtros elegidos. Cambia el rango de fechas o programa trabajo en la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=&quot;location.href='agenda.html'&quot;`}) })"></div>
     </template>
     <template x-if="$store.ui.view==='error'">
-      <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de partes diarios devolvió un error inesperado (500).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+      <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de partes diarios devolvió un error inesperado (500).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
     </template>
 
     <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -162,7 +167,8 @@ function controlPage() {
                       @change="cambiarEstado(a, $event.target.value)" :disabled="!$store.ui.puede('editar')"
                       :aria-label="'Estado de '+a.id">
                       <option value="pendiente">Pendiente</option><option value="en_ejecucion">En ejecución</option>
-                      <option value="completada">Completada</option><option value="retrasada">Retrasada</option><option value="cancelada">Cancelada</option>
+                      <option value="en_revision">En revisión</option><option value="completada">Completada</option>
+                      <option value="retrasada">Retrasada</option><option value="cancelada">Cancelada</option>
                     </select>
                   </td>
                   <td x-html="UI.progress(CALC.avanceActividad(a), {estado: a.estado==='retrasada' ? 'critico':''})"></td>

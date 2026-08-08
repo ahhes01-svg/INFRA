@@ -21,7 +21,7 @@
     <div class="max-w-4xl grid md:grid-cols-2 gap-4" x-html="UI.skel.cards(4)"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
     <div class="ui-card mt-8 max-w-4xl" x-html="UI.emptyState({ icon:'settings', title:'Sin parámetros personalizados', desc:'Esta cuenta usa la configuración por defecto del sistema.' })"></div>

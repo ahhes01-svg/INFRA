@@ -84,7 +84,7 @@ function reportesPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'chart', title:'Sin datos para reportar', desc:'Los reportes se generan a partir de actividades registradas. Aún no hay operación en el rango elegido.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">

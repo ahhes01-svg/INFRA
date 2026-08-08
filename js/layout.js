@@ -56,7 +56,7 @@
     const css = `
     .shell{ display:flex; height:100vh; height:100dvh; overflow:hidden; }
     .shell-side{ display:flex; flex-direction:column; width:224px; flex:none;
-      background:var(--s1); border-right:1px solid var(--line); }
+      background:var(--s1); border-right:1px solid var(--line); position:relative; z-index:20; }
     .shell-scrim{ display:none; }
     .shell-burger{ display:none; }
     @media (max-width:1023px){
@@ -87,7 +87,7 @@
 
     .shell-main{ flex:1; display:flex; flex-direction:column; min-width:0; }
     .shell-top{ height:56px; flex:none; background:var(--s1); border-bottom:1px solid var(--line);
-      display:flex; align-items:center; gap:8px; padding:0 16px; }
+      display:flex; align-items:center; gap:8px; padding:0 16px; position:relative; z-index:20; }
     .shell-top .t-title{ font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .shell-top .t-right{ margin-left:auto; display:flex; align-items:center; gap:6px; }
     .shell-top select.ui-select{ width:auto; height:32px; font-size:13px; padding-right:26px; }
@@ -251,6 +251,13 @@
           <h1 class="t-title">${title}</h1>
 
           <div class="t-right">
+            <!-- Búsqueda global -->
+            <button class="ck-trigger" @click="window.dispatchEvent(new CustomEvent('app:cmdk'))" aria-label="Búsqueda global">
+              ${UI.icon('search', 14)}
+              <span class="ck-lbl">Buscar…</span>
+              <span class="ck-kbd">Ctrl K</span>
+            </button>
+
             <!-- Simulador de estados de pantalla (demo) -->
             <div class="seg" role="group" aria-label="Simular estado de pantalla" x-tooltip="'Demo: simula los 4 estados de la pantalla'">
               ${['data|Datos', 'loading|Carga', 'empty|Vacío', 'error|Error'].map(o => {
@@ -325,6 +332,58 @@
 
     document.body.prepend(shell);
     shell.querySelector('#main-slot').appendChild(main);
+    injectCmdk();
+  }
+
+  /* ── Paleta de búsqueda global (Ctrl+K) ──────────────────────────────── */
+  function injectCmdk() {
+    const el = document.createElement('div');
+    el.setAttribute('x-data', 'cmdk()');
+    el.innerHTML = `
+      <template x-if="open">
+        <div @keydown.escape.window="hide()">
+          <div class="ui-backdrop" @click="hide()"></div>
+          <div class="ck-modal" role="dialog" aria-modal="true" aria-label="Búsqueda global">
+            <div class="ck-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start" @click.outside="hide()">
+              <div class="ck-input-row">
+                ${UI.icon('search', 16)}
+                <input x-ref="inp" type="text" x-model="q" @input="idx=0"
+                  placeholder="Sitio, actividad, técnico, proyecto, incidencia, material…"
+                  @keydown.arrow-down.prevent="mover(1)" @keydown.arrow-up.prevent="mover(-1)"
+                  @keydown.enter.prevent="ir()" aria-label="Buscar en todo el sistema">
+                <span class="ck-kbd">esc</span>
+              </div>
+              <div class="ck-list">
+                <template x-for="g in grupos" :key="g.nombre">
+                  <div>
+                    <p class="ck-group" x-text="g.nombre"></p>
+                    <template x-for="item in g.items" :key="item.href + item.t">
+                      <a :href="item.href" class="ck-item" :class="idxDe(item)===idx && 'is-active'"
+                        @mouseenter="idx = idxDe(item)">
+                        <span class="ck-ico" x-html="UI.icon(item.icon, 15)"></span>
+                        <span style="min-width:0">
+                          <span class="ck-t" style="display:block" x-text="item.t"></span>
+                          <span class="ck-s" style="display:block" x-text="item.s"></span>
+                        </span>
+                        <span class="ck-right" x-html="item.badge ? UI.badge(item.badge) : ''"></span>
+                      </a>
+                    </template>
+                  </div>
+                </template>
+                <div class="ck-empty" x-show="q.trim() && !planos.length">
+                  Sin resultados para «<span x-text="q"></span>». Prueba con un código de sitio (IC-…), un ID (ACT-…) o un nombre.
+                </div>
+              </div>
+              <div class="ck-foot">
+                <span><span class="ck-kbd">↑↓</span> navegar</span>
+                <span><span class="ck-kbd">↵</span> abrir</span>
+                <span><span class="ck-kbd">esc</span> cerrar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>`;
+    document.body.appendChild(el);
   }
 
   /* ── Chrome móvil (Mi jornada) ───────────────────────────────────────── */

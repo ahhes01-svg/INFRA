@@ -38,7 +38,15 @@ function sitioPage() {
     accion(a) {
       const u = Alpine.store('db').sesion.usuario;
       if (['pendiente', 'retrasada'].includes(a.estado)) { ACCIONES.iniciarActividad(a.id, u); Alpine.store('toasts').push('info', 'Actividad iniciada', a.id); }
-      else if (a.estado === 'en_ejecucion') { ACCIONES.completarActividad(a.id, u); Alpine.store('toasts').push('ok', 'Actividad completada', `Avance del sitio: ${CALC.avanceSitio(this.id)}%`); }
+      else if (a.estado === 'en_ejecucion') {
+        const r = ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + r.faltantes.join(' · '));
+        else Alpine.store('toasts').push('ok', 'Cierre enviado a revisión', a.id);
+      }
+      else if (a.estado === 'en_revision' && Alpine.store('ui').puede('aprobar')) {
+        ACCIONES.aprobarActividad(a.id, u);
+        Alpine.store('toasts').push('ok', 'Cierre aprobado', `Avance del sitio: ${CALC.avanceSitio(this.id)}%`);
+      }
     },
   };
 }
@@ -58,10 +66,10 @@ function sitioPage() {
     </div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la ficha del sitio.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la ficha del sitio.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
-    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'Sitio no encontrado', desc:'Verifica el código o vuelve al listado.', action: UI.btn({label:'Ir a BTS / Sitios', attrs:`onclick=\"location.href='bts.html'\"`}) })"></div>
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'Sitio no encontrado', desc:'Verifica el código o vuelve al listado.', action: UI.btn({label:'Ir a BTS / Sitios', attrs:`onclick=&quot;location.href='bts.html'&quot;`}) })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -137,7 +145,8 @@ function sitioPage() {
                     <td x-html="UI.progress(CALC.avanceActividad(a), {estado: a.estado==='retrasada' ? 'critico':''})"></td>
                     <td class="row-actions text-right whitespace-nowrap">
                       <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['pendiente','retrasada'].includes(a.estado)" @click="accion(a)" x-html="UI.icon('play',12)+' Iniciar'"></button>
-                      <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'" @click="accion(a)" x-html="UI.icon('check',12)+' Completar'"></button>
+                      <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'" @click="accion(a)" x-html="UI.icon('check',12)+' Finalizar'"></button>
+                      <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_revision' && $store.ui.puede('aprobar')" @click="accion(a)" x-html="UI.icon('check',12)+' Aprobar'"></button>
                     </td>
                   </tr>
                 </template>
@@ -145,7 +154,29 @@ function sitioPage() {
             </table>
           </div>
           <div class="ui-card" x-show="!acts.length"
-            x-html="UI.emptyState({icon:'clipboard', title:'Sin actividades registradas', desc:'Programa la primera actividad para este sitio desde la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=\"location.href='agenda.html'\"`})})"></div>
+            x-html="UI.emptyState({icon:'clipboard', title:'Sin actividades registradas', desc:'Programa la primera actividad para este sitio desde la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=&quot;location.href='agenda.html'&quot;`})})"></div>
+        </section>
+
+        <section aria-label="Materiales despachados al sitio">
+          <h2 class="text-sm font-semibold mb-2">Materiales despachados</h2>
+          <div class="ui-table-wrap" x-show="CALC.movimientosDeSitio(id).length">
+            <table class="ui-table">
+              <thead><tr><th>Fecha</th><th>Material</th><th class="text-right">Cantidad</th><th>Actividad</th><th>Despachó</th></tr></thead>
+              <tbody>
+                <template x-for="mv in CALC.movimientosDeSitio(id)" :key="mv.id">
+                  <tr>
+                    <td class="mono text-xs" x-text="UI.fmt.fecha(mv.fecha) + ' ' + mv.hora"></td>
+                    <td><span class="mono text-xs text-ink-3" x-text="mv.materialId"></span> <span class="text-sm" x-text="$store.db.materiales.find(m=>m.id===mv.materialId)?.nombre"></span></td>
+                    <td class="mono text-xs text-right" x-text="mv.cantidad + ' ' + ($store.db.materiales.find(m=>m.id===mv.materialId)?.unidad || '')"></td>
+                    <td class="mono text-xs" x-text="mv.actividadId || '—'"></td>
+                    <td class="text-xs" x-text="mv.usuario"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <div class="ui-card" x-show="!CALC.movimientosDeSitio(id).length"
+            x-html="UI.emptyState({icon:'box', title:'Sin despachos registrados', desc:'Los materiales despachados a este sitio desde el almacén aparecerán aquí.'})"></div>
         </section>
 
         <section aria-label="Evidencias del sitio">
