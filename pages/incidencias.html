@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incidencias · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function incidenciasPage() {
+  return {
+    fSev: '', fEstado: '', q: '',
+    nuevo: false,
+    form: { titulo: '', descripcion: '', severidad: 'media', sitioId: 'st-06', fechaLimite: '2026-08-15' },
+    tocado: false,
+
+    lista() {
+      return Alpine.store('db').incidencias
+        .filter(i => !this.fSev || i.severidad === this.fSev)
+        .filter(i => !this.fEstado || i.estado === this.fEstado)
+        .filter(i => !this.q || (i.id + i.titulo + i.descripcion + CALC.sitio(i.sitioId).codigo).toLowerCase().includes(this.q.toLowerCase()));
+    },
+    crear() {
+      this.tocado = true;
+      if (!this.form.titulo.trim() || this.form.titulo.trim().length < 8) return;
+      const id = ACCIONES.crearIncidencia(this.form, Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId);
+      this.nuevo = false; this.tocado = false;
+      this.form = { titulo: '', descripcion: '', severidad: 'media', sitioId: 'st-06', fechaLimite: '2026-08-15' };
+      Alpine.store('toasts').push('ok', 'Incidencia registrada', `${id} — visible en dashboard, ficha del sitio y campana.`);
+    },
+  };
+}
+</script>
+</head>
+<body data-page="incidencias" data-title="Incidencias" class="bg-surface-0">
+
+<main id="page" x-data="incidenciasPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3" x-html="UI.skel.kpis(4)"></div>
+      <div class="space-y-3" x-html="UI.skel.cards(4)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'checkCircle', title:'Sin incidencias reportadas', desc:'Buena señal: no hay hallazgos abiertos en ningún sitio. Las incidencias que reporte la cuadrilla aparecerán aquí.', action: UI.btn({label:'Registrar incidencia', icon:'plus'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3" aria-label="Resumen de incidencias">
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('alert',13)+'Abiertas'"></span><span class="kpi-value" x-countup="$store.db.incidencias.filter(i=>['abierta','en_atencion'].includes(i.estado)).length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('calendarX',13)+'Vencidas'"></span><span class="kpi-value" style="color:var(--st-critico)" x-countup="$store.db.incidencias.filter(i=>CALC.incidenciaVencida(i)).length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('zap',13)+'Críticas activas'"></span><span class="kpi-value" style="color:var(--st-critico)" x-countup="$store.db.incidencias.filter(i=>i.severidad==='critica' && ['abierta','en_atencion'].includes(i.estado)).length">0</span></div>
+      <div class="ui-card ui-kpi"><span class="kpi-label" x-html="UI.icon('checkCircle',13)+'Resueltas'"></span><span class="kpi-value" style="color:var(--st-completado)" x-countup="$store.db.incidencias.filter(i=>i.estado==='resuelta').length">0</span></div>
+    </section>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="ID, título, sitio…" x-model="q" aria-label="Buscar incidencia">
+      </div>
+      <select class="ui-select" style="width:150px" x-model="fSev" aria-label="Severidad">
+        <option value="">Toda severidad</option><option value="critica">Crítica</option><option value="alta">Alta</option>
+        <option value="media">Media</option><option value="baja">Baja</option>
+      </select>
+      <select class="ui-select" style="width:150px" x-model="fEstado" aria-label="Estado">
+        <option value="">Todo estado</option><option value="abierta">Abierta</option><option value="en_atencion">En atención</option>
+        <option value="resuelta">Resuelta</option><option value="cancelada">Cancelada</option>
+      </select>
+      <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" @click="nuevo=true" x-html="UI.icon('plus',15)+' Registrar incidencia'"></button>
+    </div>
+
+    <section class="space-y-3" aria-label="Listado de incidencias">
+      <template x-for="i in lista()" :key="i.id">
+        <article class="ui-card p-4" :style="CALC.incidenciaVencida(i) ? 'border-color:var(--st-critico-bd)' : ''">
+          <div class="flex flex-wrap items-start gap-3">
+            <span class="mt-0.5" :style="`color:var(--st-${UI.estadoInfo(i.severidad).key})`" x-html="UI.icon('alert',20)"></span>
+            <div class="flex-1 min-w-[260px]">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="mono text-xs text-ink-3" x-text="i.id"></span>
+                <span x-html="UI.badge(i.severidad, 'Severidad ' + UI.estadoInfo(i.severidad).label.toLowerCase())"></span>
+                <span x-html="UI.badge(i.estado)"></span>
+                <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', `Vencida hace ${CALC.diasVencida(i)} días`)"></span>
+              </div>
+              <h2 class="font-semibold mt-1.5" x-text="i.titulo"></h2>
+              <p class="text-sm text-ink-2 mt-1" x-text="i.descripcion"></p>
+              <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-ink-3">
+                <a :href="$store.ui.href('bts-detalle')+'&id='+i.sitioId" class="mono text-brand-600 dark:text-brand-400 hover:underline" x-text="CALC.sitio(i.sitioId).codigo"></a>
+                <span x-show="i.actividadId" class="mono" x-text="'Actividad ' + i.actividadId"></span>
+                <span class="flex items-center gap-1" x-html="UI.icon('user',11) + ' ' + (CALC.tecnico(i.reportadoPor).nombre || 'Sistema')"></span>
+                <span class="mono" x-text="`Reportada ${UI.fmt.fecha(i.fecha)} ${i.hora}`"></span>
+                <span class="mono" :style="CALC.incidenciaVencida(i) ? 'color:var(--st-critico);font-weight:600' : ''" x-text="`Límite ${UI.fmt.fecha(i.fechaLimite)}`"></span>
+              </div>
+            </div>
+            <div class="flex gap-2 flex-none">
+              <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="i.estado==='abierta' && $store.ui.puede('campo')"
+                @click="ACCIONES.atenderIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('info','Incidencia en atención', i.id)">Atender</button>
+              <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="['abierta','en_atencion'].includes(i.estado) && $store.ui.puede('aprobar')"
+                @click="ACCIONES.resolverIncidencia(i.id, $store.db.sesion.usuario); $store.toasts.push('ok','Incidencia resuelta', i.id + ' — el estado del sitio se actualizó.')">Resolver</button>
+            </div>
+          </div>
+        </article>
+      </template>
+      <div class="ui-card" x-show="!lista().length"
+        x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ninguna incidencia coincide con los filtros aplicados.'})"></div>
+    </section>
+  </div>
+
+  <!-- Modal registrar incidencia -->
+  <template x-if="nuevo">
+    <div @keydown.escape.window="nuevo=false">
+      <div class="ui-backdrop" @click="nuevo=false" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="ni-title">
+        <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <h3 class="font-semibold" id="ni-title">Registrar incidencia</h3>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="nuevo=false" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <div class="ui-modal-body space-y-4">
+            <div>
+              <label class="ui-label" for="ni-tit">Título *</label>
+              <input id="ni-tit" class="ui-input" :class="tocado && form.titulo.trim().length<8 && 'is-invalid'"
+                x-model="form.titulo" placeholder="Ej. Rectificador sin salida DC" autofocus @input="tocado=true">
+              <p class="ui-error" x-show="tocado && form.titulo.trim().length<8" x-cloak>
+                <span x-html="UI.icon('alertCircle',12)"></span>Describe la incidencia en al menos 8 caracteres</p>
+            </div>
+            <div>
+              <label class="ui-label" for="ni-desc">Descripción</label>
+              <textarea id="ni-desc" class="ui-textarea" x-model="form.descripcion" placeholder="¿Qué se encontró? ¿Qué se necesita?"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="ui-label" for="ni-sev">Severidad</label>
+                <select id="ni-sev" class="ui-select" x-model="form.severidad">
+                  <option value="critica">Crítica</option><option value="alta">Alta</option>
+                  <option value="media">Media</option><option value="baja">Baja</option>
+                </select>
+              </div>
+              <div>
+                <label class="ui-label" for="ni-sitio">Sitio</label>
+                <select id="ni-sitio" class="ui-select mono text-xs" x-model="form.sitioId">
+                  <template x-for="s in $store.db.sitios.slice(0,15)"><option :value="s.id" x-text="s.codigo"></option></template>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="ui-label" for="ni-lim">Fecha límite de atención</label>
+              <input id="ni-lim" type="date" class="ui-input" x-model="form.fechaLimite">
+              <p class="ui-help" x-show="form.severidad==='critica'">Una incidencia crítica pone el sitio en alarma hasta resolverse.</p>
+            </div>
+          </div>
+          <div class="ui-modal-foot">
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="nuevo=false">Cancelar</button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" @click="crear()">Registrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>

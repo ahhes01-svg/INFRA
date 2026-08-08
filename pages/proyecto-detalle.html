@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de proyecto · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function proyectoPage() {
+  const id = new URLSearchParams(location.search).get('id') || 'pry-01';
+  return {
+    id,
+    tab: 'resumen',
+    tabs: ['resumen', 'bts', 'actividades', 'tecnicos', 'cronograma', 'materiales', 'incidencias', 'evidencias', 'historial'],
+    tabLabels: { resumen: 'Resumen', bts: 'BTS', actividades: 'Actividades', tecnicos: 'Técnicos', cronograma: 'Cronograma', materiales: 'Materiales', incidencias: 'Incidencias', evidencias: 'Evidencias', historial: 'Historial' },
+    get p() { return CALC.proyecto(this.id); },
+    get acts() { return CALC.actividadesDeProyecto(this.id); },
+    get sitios() { return CALC.sitiosDeProyecto(this.id); },
+    get historialProyecto() {
+      const ids = new Set([this.p.codigo, ...this.acts.map(a => a.id), ...CALC.incidenciasDeProyecto(this.id).map(i => i.id)]);
+      return Alpine.store('db').historial.filter(h => ids.has(h.entidad));
+    },
+    get evidenciasProyecto() {
+      const ids = new Set(this.acts.map(a => a.id));
+      return Alpine.store('db').evidencias.filter(e => ids.has(e.actividadId));
+    },
+    // Cronograma: ventana de fechas del proyecto → posición % de cada barra
+    get cronoWin() {
+      const fechas = this.acts.map(a => a.fecha).sort();
+      if (!fechas.length) return null;
+      const min = new Date(fechas[0] + 'T12:00'), max = new Date(fechas[fechas.length - 1] + 'T12:00');
+      const dias = Math.max(1, Math.round((max - min) / 86400000) + 1);
+      return { min, dias };
+    },
+    cronoPos(a) {
+      const w = this.cronoWin; if (!w) return '';
+      const d = Math.round((new Date(a.fecha + 'T12:00') - w.min) / 86400000);
+      const left = d / w.dias * 100;
+      const width = Math.max(100 / w.dias * 0.9, 1.8);
+      return `left:${left}%;width:${width}%`;
+    },
+    accion(a) {
+      const u = Alpine.store('db').sesion.usuario;
+      if (['pendiente', 'retrasada'].includes(a.estado)) {
+        ACCIONES.iniciarActividad(a.id, u);
+        Alpine.store('toasts').push('info', 'Actividad iniciada', a.id);
+      } else if (a.estado === 'en_ejecucion') {
+        ACCIONES.completarActividad(a.id, u);
+        Alpine.store('toasts').push('ok', 'Actividad completada', `Avance del proyecto: ${CALC.avanceProyecto(this.id)}%`);
+      }
+    },
+  };
+}
+</script>
+</head>
+<body data-page="proyectos" data-title="Detalle de proyecto" class="bg-surface-0">
+
+<main id="page" x-data="proyectoPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="ui-card p-5" x-html="UI.skel.detail()"></div>
+      <div x-html="UI.skel.table(6,6)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el proyecto solicitado.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'folder', title:'Proyecto no encontrado', desc:'El proyecto pudo haber sido archivado o el enlace es incorrecto.', action: UI.btn({label:'Ir a proyectos', attrs:`onclick=\"location.href='proyectos.html'\"`}) })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+
+    <!-- Cabecera -->
+    <nav class="text-xs text-ink-3" aria-label="Miga de pan">
+      <a :href="$store.ui.href('proyectos')" class="hover:text-ink-1">Proyectos</a>
+      <span aria-hidden="true"> / </span><span class="mono text-ink-2" x-text="p.codigo"></span>
+    </nav>
+    <header class="ui-card p-5">
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-xl font-semibold" x-text="p.nombre"></h1>
+            <span x-html="UI.badge(p.estado)"></span>
+          </div>
+          <p class="text-sm text-ink-2 mt-1 max-w-3xl" x-text="p.descripcion"></p>
+          <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-sm text-ink-2">
+            <span class="flex items-center gap-1.5" x-html="UI.icon('user',13) + ' ' + CALC.cliente(p.clienteId).razon"></span>
+            <span class="flex items-center gap-1.5" x-html="UI.icon('shield',13) + ' ' + p.supervisor"></span>
+            <span class="flex items-center gap-1.5 mono text-xs" x-html="UI.icon('calendar',13) + ' ' + UI.fmt.fecha(p.inicio) + ' → ' + UI.fmt.fecha(p.fin)"></span>
+          </div>
+        </div>
+        <div class="w-full sm:w-64 space-y-2">
+          <p class="text-xs uppercase font-semibold tracking-wide text-ink-3">Avance real (por actividades)</p>
+          <div x-html="UI.progress(CALC.avanceProyecto(id))"></div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-surface-2 rounded p-2"><p class="mono font-semibold" x-text="sitios.length"></p><p class="text-xs text-ink-3">BTS</p></div>
+            <div class="bg-surface-2 rounded p-2"><p class="mono font-semibold" x-text="acts.length"></p><p class="text-xs text-ink-3">Activ.</p></div>
+            <div class="bg-surface-2 rounded p-2"><p class="mono font-semibold" style="color:var(--st-critico)" x-text="CALC.incidenciasDeProyecto(id).filter(i=>['abierta','en_atencion'].includes(i.estado)).length"></p><p class="text-xs text-ink-3">Incid.</p></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Pestañas -->
+    <div class="ui-tabs" role="tablist" aria-label="Secciones del proyecto">
+      <template x-for="t in tabs" :key="t">
+        <button class="ui-tab" :class="tab===t && 'is-active'" role="tab" :aria-selected="tab===t"
+          @click="tab=t" x-text="tabLabels[t]"></button>
+      </template>
+    </div>
+
+    <!-- ── Resumen ── -->
+    <section x-show="tab==='resumen'" role="tabpanel" class="grid md:grid-cols-2 gap-4">
+      <div class="ui-card p-5">
+        <h2 class="text-sm font-semibold mb-3">Estado de actividades</h2>
+        <div class="space-y-2.5">
+          <template x-for="e in [['completada'],['en_ejecucion'],['pendiente'],['retrasada'],['cancelada']]" :key="e[0]">
+            <div class="flex items-center gap-3">
+              <span class="w-32" x-html="UI.badge(e[0])"></span>
+              <div class="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
+                <div class="h-full rounded-full tr-250" :style="`width:${acts.length ? acts.filter(a=>a.estado===e[0]).length/acts.length*100 : 0}%;background:var(--st-${UI.estadoInfo(e[0]).key})`"></div>
+              </div>
+              <span class="mono text-sm w-6 text-right" x-text="acts.filter(a=>a.estado===e[0]).length"></span>
+            </div>
+          </template>
+        </div>
+        <p class="text-xs text-ink-3 mt-4">El avance del proyecto es el promedio real del avance de sus actividades (las canceladas no cuentan).</p>
+      </div>
+      <div class="ui-card p-5">
+        <h2 class="text-sm font-semibold mb-3">Cliente y contacto</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between gap-3"><dt class="text-ink-3">Operador</dt><dd class="font-medium text-right" x-text="CALC.cliente(p.clienteId).nombre"></dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-ink-3">Razón social</dt><dd class="text-right" x-text="CALC.cliente(p.clienteId).razon"></dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-ink-3">RUC</dt><dd class="mono text-right" x-text="CALC.cliente(p.clienteId).ruc"></dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-ink-3">Contacto</dt><dd class="text-right" x-text="CALC.cliente(p.clienteId).contacto + ' — ' + CALC.cliente(p.clienteId).cargoContacto"></dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-ink-3">Teléfono</dt><dd class="mono text-right" x-text="CALC.cliente(p.clienteId).telefono"></dd></div>
+          <div class="flex justify-between gap-3 pt-2 border-t border-line"><dt class="text-ink-3">Presupuesto</dt><dd class="mono font-semibold text-right" x-text="UI.fmt.moneda(p.presupuesto)"></dd></div>
+        </dl>
+        <button class="ui-btn ui-btn-secondary ui-btn-md w-full mt-4" x-show="$store.ui.puede('exportar')"
+          @click="UI.protoNotice()" x-html="UI.icon('download',14)+' Exportar resumen a PDF'"></button>
+      </div>
+    </section>
+
+    <!-- ── BTS ── -->
+    <section x-show="tab==='bts'" x-cloak role="tabpanel"
+      x-data="dataTable({ rows: () => sitios.map(s => ({...s, avance: CALC.avanceSitio(s.id) ?? -1})), sortKey: 'codigo', pageSize: 8, filters: { estado: '' } })">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <input type="search" class="ui-input" style="width:220px" placeholder="Buscar sitio…" x-model="q" aria-label="Buscar sitio">
+        <select class="ui-select" style="width:160px" x-model="filters.estado" aria-label="Filtrar por estado">
+          <option value="">Todos</option><option value="operativo">Operativo</option><option value="en_ejecucion">En ejecución</option>
+          <option value="planificado">Planificado</option><option value="alarma">En alarma</option>
+        </select>
+        <span class="text-xs text-ink-3 ml-auto mono" x-text="rangeLabel"></span>
+      </div>
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Sitios del proyecto">
+          <thead><tr>
+            <th class="col-sticky sortable" @click="sortBy('codigo')">Código <span x-text="sortIcon('codigo')"></span></th>
+            <th>Nombre / dirección</th><th>Distrito</th><th>Tipo</th>
+            <th class="sortable" @click="sortBy('estado')">Estado <span x-text="sortIcon('estado')"></span></th>
+            <th class="sortable" @click="sortBy('avance')">Avance <span x-text="sortIcon('avance')"></span></th>
+          </tr></thead>
+          <tbody>
+            <template x-for="s in paged" :key="s.id">
+              <tr>
+                <td class="col-sticky"><a :href="$store.ui.href('bts-detalle') + '&id=' + s.id" class="mono text-xs text-brand-600 dark:text-brand-400 hover:underline" x-text="s.codigo"></a></td>
+                <td class="max-w-[280px]"><p class="truncate" :title="s.nombre" x-text="s.nombre"></p><p class="text-xs text-ink-3 truncate" x-text="s.direccion"></p></td>
+                <td x-text="s.distrito"></td>
+                <td class="text-xs" x-text="s.tipo"></td>
+                <td x-html="UI.badge(s.estado)"></td>
+                <td><span x-show="s.avance >= 0" x-html="UI.progress(Math.max(0, s.avance))"></span><span x-show="s.avance < 0" class="text-xs text-ink-3">Sin actividades</span></td>
+              </tr>
+            </template>
+            <tr x-show="!filtered.length"><td colspan="6" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ajusta la búsqueda o el filtro de estado.'})"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between mt-2 text-xs">
+        <span class="mono text-ink-2" x-text="rangeLabel"></span>
+        <div class="flex gap-1">
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
+          <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Actividades ── -->
+    <section x-show="tab==='actividades'" x-cloak role="tabpanel">
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Actividades del proyecto">
+          <thead><tr><th class="col-sticky">ID</th><th>Actividad</th><th>Sitio</th><th>Fecha</th><th>Estado</th><th>Avance</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody>
+            <template x-for="a in acts" :key="a.id">
+              <tr>
+                <td class="col-sticky mono text-xs" x-text="a.id"></td>
+                <td x-text="CALC.tipo(a.tipoId).nombre"></td>
+                <td class="mono text-xs" x-text="CALC.sitio(a.sitioId).codigo"></td>
+                <td class="mono text-xs" x-text="UI.fmt.fecha(a.fecha)"></td>
+                <td x-html="UI.badge(a.estado)"></td>
+                <td x-html="UI.progress(CALC.avanceActividad(a), {estado: a.estado==='retrasada' ? 'critico' : ''})"></td>
+                <td class="row-actions text-right whitespace-nowrap">
+                  <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['pendiente','retrasada'].includes(a.estado) && $store.ui.puede('campo')" @click="accion(a)" x-html="UI.icon('play',12)+' Iniciar'"></button>
+                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'" @click="accion(a)" x-html="UI.icon('check',12)+' Completar'"></button>
+                  <a :href="$store.ui.href('actividades') + '&id=' + a.id" class="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Ver" x-html="UI.icon('eye',14)"></a>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Técnicos ── -->
+    <section x-show="tab==='tecnicos'" x-cloak role="tabpanel" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      <template x-for="t in CALC.tecnicosDeProyecto(id)" :key="t.id">
+        <div class="ui-card p-4 flex items-center gap-3">
+          <span x-html="UI.avatar(t, 40)"></span>
+          <div class="min-w-0 flex-1">
+            <p class="font-medium truncate" x-text="t.nombre"></p>
+            <p class="text-xs text-ink-3" x-text="t.rol + ' · ' + t.zona"></p>
+          </div>
+          <div class="text-right">
+            <span x-html="UI.badge(t.estado)"></span>
+            <p class="text-xs text-ink-3 mt-1 mono" x-text="CALC.actividadesDeProyecto(id).filter(a=>a.tecnicos.includes(t.id)).length + ' activ.'"></p>
+          </div>
+        </div>
+      </template>
+      <p x-show="!CALC.tecnicosDeProyecto(id).length" class="text-sm text-ink-3 col-span-full">Aún no hay técnicos asignados a actividades de este proyecto.</p>
+    </section>
+
+    <!-- ── Cronograma ── -->
+    <section x-show="tab==='cronograma'" x-cloak role="tabpanel" class="ui-card p-5 overflow-x-auto">
+      <h2 class="text-sm font-semibold mb-1">Cronograma de actividades</h2>
+      <p class="text-xs text-ink-3 mb-4" x-show="cronoWin" x-text="`Ventana: ${acts.map(a=>a.fecha).sort()[0]} → ${acts.map(a=>a.fecha).sort().slice(-1)[0]} · la línea vertical marca hoy`"></p>
+      <div class="min-w-[640px] relative" x-show="cronoWin">
+        <!-- línea de hoy -->
+        <div class="absolute top-0 bottom-0 w-px z-10" aria-hidden="true"
+          :style="`left:calc(240px + (100% - 240px) * ${(Math.round((new Date($store.ui.hoy+'T12:00') - cronoWin.min)/86400000))/cronoWin.dias});background:var(--st-critico)`"></div>
+        <template x-for="a in [...acts].sort((x,y)=>x.fecha.localeCompare(y.fecha))" :key="a.id">
+          <div class="flex items-center gap-2 h-9 border-b border-line last:border-0">
+            <div class="w-[240px] flex-none flex items-center gap-2 pr-2">
+              <span class="mono text-xs text-ink-3" x-text="a.id"></span>
+              <span class="text-xs truncate" x-text="CALC.tipo(a.tipoId).nombre"></span>
+            </div>
+            <div class="flex-1 relative h-5">
+              <div class="absolute top-0.5 h-4 rounded tr-250" :style="cronoPos(a) + `;background:var(--st-${UI.estadoInfo(a.estado).key})`"
+                x-tooltip="`${a.fecha} · ${a.hIni}–${a.hFin} · ${UI.estadoInfo(a.estado).label}`"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="flex gap-3 mt-4 flex-wrap" x-html="['completada','en_ejecucion','pendiente','retrasada','cancelada'].map(e=>UI.badge(e)).join('')"></div>
+    </section>
+
+    <!-- ── Materiales ── -->
+    <section x-show="tab==='materiales'" x-cloak role="tabpanel">
+      <p class="text-xs text-ink-3 mb-3">Stock disponible en almacenes para este proyecto. El estado nunca se comunica solo por color.</p>
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Materiales">
+          <thead><tr><th class="col-sticky">Código</th><th>Material</th><th>Categoría</th><th>Almacén</th><th class="text-right">Stock / mín.</th><th>Estado</th></tr></thead>
+          <tbody>
+            <template x-for="m in $store.db.materiales" :key="m.id">
+              <tr>
+                <td class="col-sticky mono text-xs" x-text="m.id"></td>
+                <td x-text="m.nombre"></td>
+                <td class="text-xs" x-text="m.categoria"></td>
+                <td class="text-xs" x-text="m.almacen"></td>
+                <td class="mono text-xs text-right" x-text="`${m.stock} / ${m.minimo} ${m.unidad}`"></td>
+                <td x-html="UI.badge(CALC.estadoMaterial(m))"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Incidencias ── -->
+    <section x-show="tab==='incidencias'" x-cloak role="tabpanel" class="space-y-3">
+      <template x-for="i in CALC.incidenciasDeProyecto(id)" :key="i.id">
+        <div class="ui-card p-4 flex flex-wrap items-start gap-3">
+          <span :style="`color:var(--st-${UI.estadoInfo(i.severidad).key})`" x-html="UI.icon('alert',18)"></span>
+          <div class="flex-1 min-w-[240px]">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="mono text-xs text-ink-3" x-text="i.id"></span>
+              <span x-html="UI.badge(i.severidad, 'Severidad ' + UI.estadoInfo(i.severidad).label.toLowerCase())"></span>
+              <span x-html="UI.badge(i.estado)"></span>
+              <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', `Vencida hace ${CALC.diasVencida(i)} días`)"></span>
+            </div>
+            <p class="font-medium mt-1" x-text="i.titulo"></p>
+            <p class="text-sm text-ink-2 mt-0.5" x-text="i.descripcion"></p>
+            <p class="text-xs text-ink-3 mt-1 mono" x-text="`${CALC.sitio(i.sitioId).codigo} · reportada ${UI.fmt.fecha(i.fecha)} ${i.hora} · límite ${UI.fmt.fecha(i.fechaLimite)}`"></p>
+          </div>
+          <a :href="$store.ui.href('incidencias')" class="ui-btn ui-btn-secondary ui-btn-sm">Gestionar</a>
+        </div>
+      </template>
+      <div class="ui-card" x-show="!CALC.incidenciasDeProyecto(id).length"
+        x-html="UI.emptyState({icon:'checkCircle', title:'Sin incidencias', desc:'Este proyecto no tiene incidencias reportadas.'})"></div>
+    </section>
+
+    <!-- ── Evidencias ── -->
+    <section x-show="tab==='evidencias'" x-cloak role="tabpanel">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3" x-show="evidenciasProyecto.length">
+        <template x-for="e in evidenciasProyecto" :key="e.id">
+          <figure class="ui-card overflow-hidden">
+            <img :src="e.archivo" :alt="e.titulo" loading="lazy" class="w-full h-32 object-cover">
+            <figcaption class="p-2.5">
+              <p class="text-xs font-medium truncate" x-text="e.titulo"></p>
+              <div class="flex items-center justify-between mt-1">
+                <span class="mono text-xs text-ink-3" x-text="e.actividadId"></span>
+                <span x-html="UI.badge(e.estado)"></span>
+              </div>
+            </figcaption>
+          </figure>
+        </template>
+      </div>
+      <div class="ui-card" x-show="!evidenciasProyecto.length"
+        x-html="UI.emptyState({icon:'camera', title:'Aún no hay evidencias', desc:'Las fotos y actas subidas desde campo aparecerán aquí.'})"></div>
+    </section>
+
+    <!-- ── Historial ── -->
+    <section x-show="tab==='historial'" x-cloak role="tabpanel" class="ui-card p-5">
+      <ol class="relative border-s border-line ms-3 space-y-5">
+        <template x-for="h in historialProyecto" :key="h.id">
+          <li class="ms-5">
+            <span class="absolute -start-[5px] mt-1.5 w-2.5 h-2.5 rounded-full bg-surface-3 border border-line-strong" aria-hidden="true"></span>
+            <p class="text-xs text-ink-3 mono" x-text="`${UI.fmt.fecha(h.fecha)} · ${h.hora} · ${h.usuario}`"></p>
+            <p class="text-sm mt-0.5" x-text="h.detalle"></p>
+          </li>
+        </template>
+      </ol>
+      <p x-show="!historialProyecto.length" class="text-sm text-ink-3">Sin registros para este proyecto.</p>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

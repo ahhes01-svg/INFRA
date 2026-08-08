@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actividades · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function actividadesPage() {
+  const abrir = new URLSearchParams(location.search).get('id');
+  return {
+    sel: null,
+    init() { if (abrir && CALC.actividad(abrir)) this.sel = abrir; },
+    get a() { return this.sel ? CALC.actividad(this.sel) : null; },
+    // El rol técnico solo ve sus propias actividades
+    visibles() {
+      const rows = Alpine.store('db').actividades;
+      if (Alpine.store('ui').role === 'tecnico') {
+        const yo = Alpine.store('db').sesion.tecnicoDemoId;
+        return rows.filter(r => r.tecnicos.includes(yo));
+      }
+      return rows;
+    },
+    filas() {
+      return this.visibles().map(a => ({
+        ...a,
+        tipo: CALC.tipo(a.tipoId).nombre,
+        sitio: CALC.sitio(a.sitioId).codigo,
+        proyecto: CALC.proyecto(a.proyectoId).codigo,
+        avance: CALC.avanceActividad(a),
+      }));
+    },
+    iniciar() { ACCIONES.iniciarActividad(this.sel, Alpine.store('db').sesion.usuario); Alpine.store('toasts').push('info', 'Actividad iniciada', this.sel); },
+    completar() {
+      const pid = this.a.proyectoId;
+      ACCIONES.completarActividad(this.sel, Alpine.store('db').sesion.usuario);
+      Alpine.store('toasts').push('ok', 'Actividad completada', `Avance del proyecto ${CALC.proyecto(pid).codigo}: ${CALC.avanceProyecto(pid)}%`);
+    },
+    marcar(idx) { ACCIONES.toggleChecklist(this.sel, idx, Alpine.store('db').sesion.usuario); },
+    subirEvidencia() {
+      ACCIONES.subirEvidencia(this.sel, 'foto_avance', 'Foto de avance de obra', Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId);
+      Alpine.store('toasts').push('ok', 'Evidencia subida', 'Quedó en revisión del supervisor.');
+    },
+  };
+}
+</script>
+</head>
+<body data-page="actividades" data-title="Actividades" class="bg-surface-0">
+
+<main id="page" x-data="actividadesPage()">
+
+  <template x-if="$store.ui.view==='loading'"><div x-html="UI.skel.table(10,8)"></div></template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'clipboard', title:'No hay actividades registradas', desc:'Programa la primera actividad desde la Agenda para empezar a controlar el avance.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=\"location.href='agenda.html'\"`}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El listado de actividades no respondió a tiempo.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'"
+    x-data="dataTable({ rows: () => filas(), sortKey: 'fecha', sortDir: 'desc', pageSize: 12, filters: { estado: '', proyecto: '' } })" class="space-y-3">
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+        <input type="search" class="ui-input pl-8" style="width:230px" placeholder="ID, sitio, tipo, técnico…" x-model="q" aria-label="Buscar actividad">
+      </div>
+      <select class="ui-select" style="width:160px" x-model="filters.estado" aria-label="Estado">
+        <option value="">Todos los estados</option><option value="pendiente">Pendiente</option><option value="en_ejecucion">En ejecución</option>
+        <option value="completada">Completada</option><option value="retrasada">Retrasada</option><option value="cancelada">Cancelada</option>
+      </select>
+      <select class="ui-select" style="width:170px" x-model="filters.proyecto" aria-label="Proyecto">
+        <option value="">Todos los proyectos</option>
+        <template x-for="p in $store.db.proyectos"><option :value="p.codigo" x-text="p.codigo"></option></template>
+      </select>
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="resetFilters()">Limpiar</button>
+      <span class="text-xs text-ink-3" x-show="selected.length" x-text="selected.length + ' seleccionadas'"></span>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="selected.length && $store.ui.puede('editar')" @click="UI.protoNotice()">Reasignar en lote</button>
+      <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" x-show="$store.ui.puede('asignar')"
+        onclick="location.href='agenda.html'+location.search" x-html="UI.icon('plus',15)+' Programar actividad'"></button>
+    </div>
+
+    <div class="ui-table-wrap">
+      <table class="ui-table" aria-label="Actividades">
+        <thead><tr>
+          <th class="col-sticky" style="width:36px"><input type="checkbox" class="ui-check" :checked="allPageSel" @change="toggleAll()" aria-label="Seleccionar página"></th>
+          <th class="sortable" @click="sortBy('id')">ID <span x-text="sortIcon('id')"></span></th>
+          <th>Actividad</th>
+          <th class="sortable" @click="sortBy('sitio')">Sitio <span x-text="sortIcon('sitio')"></span></th>
+          <th class="sortable" @click="sortBy('proyecto')">Proyecto <span x-text="sortIcon('proyecto')"></span></th>
+          <th>Cuadrilla</th>
+          <th class="sortable" @click="sortBy('fecha')">Fecha <span x-text="sortIcon('fecha')"></span></th>
+          <th>Horario</th>
+          <th class="sortable" @click="sortBy('estado')">Estado <span x-text="sortIcon('estado')"></span></th>
+          <th class="sortable" @click="sortBy('avance')">Avance <span x-text="sortIcon('avance')"></span></th>
+          <th><span class="sr-only">Acciones</span></th>
+        </tr></thead>
+        <tbody>
+          <template x-for="r in paged" :key="r.id">
+            <tr :class="isSel(r.id) && 'is-selected'">
+              <td class="col-sticky"><input type="checkbox" class="ui-check" :checked="isSel(r.id)" @change="toggleSel(r.id)" :aria-label="'Seleccionar '+r.id"></td>
+              <td class="mono text-xs" x-text="r.id"></td>
+              <td class="max-w-[200px] truncate" :title="r.tipo" x-text="r.tipo"></td>
+              <td class="mono text-xs" x-text="r.sitio"></td>
+              <td class="mono text-xs" x-text="r.proyecto"></td>
+              <td><span class="ui-avatar-stack" x-html="r.tecnicos.map(t=>UI.avatar(CALC.tecnico(t),24)).join('')"></span></td>
+              <td class="mono text-xs" x-text="UI.fmt.fecha(r.fecha)"></td>
+              <td class="mono text-xs" x-text="r.hIni+'–'+r.hFin"></td>
+              <td x-html="UI.badge(r.estado)"></td>
+              <td x-html="UI.progress(r.avance, {estado: r.estado==='retrasada' ? 'critico' : ''})"></td>
+              <td class="row-actions text-right whitespace-nowrap">
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="sel = r.id" x-tooltip="'Abrir detalle y checklist'" aria-label="Abrir detalle" x-html="UI.icon('eye',14)"></button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!filtered.length"><td colspan="11" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ninguna actividad coincide con los filtros aplicados.'})"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between text-xs">
+      <span class="mono text-ink-2" x-text="rangeLabel"></span>
+      <div class="flex gap-1">
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
+        <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer: detalle + checklist con porcentaje en vivo -->
+  <template x-if="a">
+    <div @keydown.escape.window="sel=null">
+      <div class="ui-backdrop" @click="sel=null" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start"></div>
+      <aside class="ui-drawer" style="max-width:500px" x-transition:enter="slide-enter" x-transition:enter-start="slide-enter-start" role="dialog" aria-modal="true" aria-label="Detalle de actividad">
+        <div class="ui-drawer-head">
+          <div>
+            <div class="flex items-center gap-2">
+              <p class="mono text-sm font-semibold" x-text="a.id"></p>
+              <span x-html="UI.badge(a.estado)"></span>
+            </div>
+            <p class="text-xs text-ink-3 mt-0.5" x-text="CALC.tipo(a.tipoId).nombre + ' · ' + CALC.sitio(a.sitioId).codigo"></p>
+          </div>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="sel=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+        </div>
+
+        <div class="ui-drawer-body space-y-5">
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Fecha</p><p class="mono text-xs mt-1" x-text="UI.fmt.diaLargo(a.fecha)"></p></div>
+            <div><p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Horario plan</p><p class="mono text-xs mt-1" x-text="a.hIni+'–'+a.hFin"></p></div>
+            <div><p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Inicio real</p><p class="mono text-xs mt-1" x-text="a.inicioReal || '—'"></p></div>
+            <div><p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Fin real</p><p class="mono text-xs mt-1" x-text="a.finReal || '—'"></p></div>
+          </div>
+
+          <div>
+            <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide mb-2">Cuadrilla</p>
+            <div class="space-y-2">
+              <template x-for="t in a.tecnicos" :key="t">
+                <div class="flex items-center gap-2.5">
+                  <span x-html="UI.avatar(CALC.tecnico(t), 32)"></span>
+                  <div><p class="text-sm font-medium" x-text="CALC.tecnico(t).nombre"></p><p class="text-xs text-ink-3" x-text="CALC.tecnico(t).rol"></p></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Checklist con porcentaje en vivo -->
+          <div x-show="a.checklist.length">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Checklist de trabajo</p>
+              <span class="mono text-xs text-ink-2" x-text="a.checklist.filter(i=>i.ok).length + ' / ' + a.checklist.length"></span>
+            </div>
+            <div class="mb-3" x-html="UI.progress(CALC.avanceActividad(a))"></div>
+            <ul class="space-y-1.5" role="list">
+              <template x-for="(item, idx) in a.checklist" :key="idx">
+                <li>
+                  <label class="flex items-start gap-2.5 p-2 rounded-md hover:bg-surface-2 tr-150 cursor-pointer"
+                    :class="a.estado!=='en_ejecucion' && 'opacity-60 pointer-events-none'">
+                    <input type="checkbox" class="ui-check mt-0.5" :checked="item.ok" @change="marcar(idx)"
+                      :disabled="a.estado!=='en_ejecucion'">
+                    <span class="text-sm" :class="item.ok && 'line-through text-ink-3'" x-text="item.t"></span>
+                  </label>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <p class="text-xs text-ink-3" x-show="!a.checklist.length">Esta actividad no tiene checklist estructurado; el avance se calcula por estado.</p>
+
+          <div x-show="a.obs">
+            <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide mb-1.5">Observaciones de campo</p>
+            <p class="text-sm text-ink-2 bg-surface-2 border border-line rounded-md p-3" x-text="a.obs"></p>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Evidencias</p>
+              <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['en_ejecucion','completada'].includes(a.estado)"
+                @click="subirEvidencia()" x-html="UI.icon('upload',12)+' Subir'"></button>
+            </div>
+            <div class="grid grid-cols-3 gap-2" x-show="CALC.evidenciasDeActividad(a.id).length">
+              <template x-for="e in CALC.evidenciasDeActividad(a.id)" :key="e.id">
+                <figure>
+                  <img :src="e.archivo" :alt="e.titulo" loading="lazy" class="w-full h-20 object-cover rounded-md border border-line">
+                  <figcaption class="mono text-xs text-ink-3 mt-1 truncate" x-text="e.hora + ' · ' + e.titulo"></figcaption>
+                </figure>
+              </template>
+            </div>
+            <p class="text-xs text-ink-3" x-show="!CALC.evidenciasDeActividad(a.id).length">Sin evidencias aún. Toda actividad completada debería tener al menos foto de antes y después.</p>
+          </div>
+        </div>
+
+        <div class="ui-drawer-foot">
+          <button class="ui-btn ui-btn-danger ui-btn-md mr-auto" x-show="['pendiente','retrasada'].includes(a.estado) && $store.ui.puede('editar')"
+            @click="ACCIONES.cancelarActividad(a.id, 'decisión del supervisor', $store.db.sesion.usuario); $store.toasts.push('warn','Actividad cancelada', a.id)">Cancelar</button>
+          <button class="ui-btn ui-btn-secondary ui-btn-md" @click="sel=null">Cerrar</button>
+          <button class="ui-btn ui-btn-primary ui-btn-md" x-show="['pendiente','retrasada'].includes(a.estado)" @click="iniciar()" x-html="UI.icon('play',13)+' Iniciar'"></button>
+          <button class="ui-btn ui-btn-primary ui-btn-md" x-show="a.estado==='en_ejecucion'" @click="completar()" x-html="UI.icon('check',13)+' Finalizar'"></button>
+        </div>
+      </aside>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportes · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function reportesPage() {
+  return {
+    init() { this.$nextTick(() => this.montar()); },
+    cumplimientoProyecto(p) {
+      const acts = CALC.actividadesDeProyecto(p.id).filter(a => a.estado !== 'cancelada');
+      const done = acts.filter(a => a.estado === 'completada').length;
+      return { total: acts.length, done, pct: acts.length ? Math.round(done / acts.length * 100) : 0 };
+    },
+    montar() {
+      UI.makeChart(this.$refs.chSemanal, th => {
+        const semanas = [['2026-07-27', '2026-08-02', 'Sem 27 jul'], ['2026-08-03', '2026-08-09', 'Sem 03 ago'], ['2026-08-10', '2026-08-16', 'Sem 10 ago']];
+        const acts = Alpine.store('db').actividades;
+        return {
+          type: 'bar',
+          data: {
+            labels: semanas.map(s => s[2]),
+            datasets: [
+              { label: 'Completadas', data: semanas.map(s => acts.filter(a => a.estado === 'completada' && a.fecha >= s[0] && a.fecha <= s[1]).length), backgroundColor: th.estado.completado },
+              { label: 'Programadas', data: semanas.map(s => acts.filter(a => a.fecha >= s[0] && a.fecha <= s[1]).length), backgroundColor: th.series[0] },
+            ],
+          },
+          options: { scales: { y: { ticks: { stepSize: 5, color: th.tick } } } },
+        };
+      });
+      UI.makeChart(this.$refs.chCliente, th => {
+        const db = Alpine.store('db');
+        return {
+          type: 'bar',
+          data: {
+            labels: db.clientes.map(c => c.nombre),
+            datasets: [{
+              label: 'Actividades', backgroundColor: th.series[0],
+              data: db.clientes.map(c => db.actividades.filter(a => CALC.proyecto(a.proyectoId).clienteId === c.id).length),
+            }],
+          },
+          options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 5, color: th.tick }, grid: { color: th.grid }, border: { display: false } }, y: { grid: { display: false }, ticks: { color: th.tick }, border: { color: th.grid } } } },
+        };
+      });
+      UI.makeChart(this.$refs.chPuntualidad, th => {
+        const done = Alpine.store('db').actividades.filter(a => a.estado === 'completada' && a.inicioReal);
+        const puntual = done.filter(a => a.inicioReal <= a.hIni).length;
+        const t15 = done.filter(a => a.inicioReal > a.hIni && (parseInt(a.inicioReal) * 60 + +a.inicioReal.slice(3)) - (parseInt(a.hIni) * 60 + +a.hIni.slice(3)) <= 15).length;
+        return {
+          type: 'doughnut',
+          data: {
+            labels: ['Inicio puntual', 'Retraso ≤ 15 min', 'Retraso > 15 min'],
+            datasets: [{ data: [puntual, t15, done.length - puntual - t15], backgroundColor: [th.estado.completado, th.estado.pendiente, th.estado.critico], borderWidth: 2, borderColor: th.dark ? '#1e293b' : '#ffffff' }],
+          },
+          options: { cutout: '64%', scales: null, plugins: { legend: { position: 'right' } } },
+        };
+      });
+    },
+  };
+}
+</script>
+</head>
+<body data-page="reportes" data-title="Reportes" class="bg-surface-0">
+
+<main id="page" x-data="reportesPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="grid md:grid-cols-3 gap-4"><template x-for="i in 3"><div class="ui-card" x-html="UI.skel.chart()"></div></template></div>
+      <div x-html="UI.skel.table(4,6)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'chart', title:'Sin datos para reportar', desc:'Los reportes se generan a partir de actividades registradas. Aún no hay operación en el rango elegido.' })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+
+    <div class="flex flex-wrap items-center gap-2">
+      <p class="text-sm text-ink-2">Reportes operativos calculados en vivo sobre los datos del prototipo.</p>
+      <div class="ml-auto flex gap-2">
+        <button class="ui-btn ui-btn-secondary ui-btn-md" x-tooltip="'No disponible en el prototipo'" @click="UI.protoNotice()" x-html="UI.icon('download',14)+' Exportar PDF'"></button>
+        <button class="ui-btn ui-btn-secondary ui-btn-md" x-tooltip="'No disponible en el prototipo'" @click="UI.protoNotice()" x-html="UI.icon('download',14)+' Exportar Excel'"></button>
+      </div>
+    </div>
+
+    <section class="grid md:grid-cols-3 gap-4" aria-label="Gráficos de reporte">
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Programadas vs completadas por semana</h2>
+        <div class="h-56"><canvas x-ref="chSemanal" role="img" aria-label="Actividades programadas y completadas por semana"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Actividades por cliente</h2>
+        <div class="h-56"><canvas x-ref="chCliente" role="img" aria-label="Actividades por cliente"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Puntualidad de inicio (completadas)</h2>
+        <div class="h-56"><canvas x-ref="chPuntualidad" role="img" aria-label="Puntualidad de inicio de actividades completadas"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Vista de tabla (los datos de los gráficos, legibles y accesibles) -->
+    <section aria-label="Resumen por proyecto">
+      <h2 class="text-lg font-semibold mb-3">Cumplimiento por proyecto</h2>
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Cumplimiento por proyecto">
+          <thead><tr>
+            <th class="col-sticky">Proyecto</th><th>Cliente</th><th>Estado</th>
+            <th class="text-right">Actividades</th><th class="text-right">Completadas</th>
+            <th>Avance real</th><th class="text-right">Incidencias activas</th><th class="text-right">Presupuesto</th>
+          </tr></thead>
+          <tbody>
+            <template x-for="p in $store.db.proyectos" :key="p.id">
+              <tr>
+                <td class="col-sticky"><a :href="$store.ui.href('proyecto-detalle')+'&id='+p.id" class="mono text-xs text-brand-600 dark:text-brand-400 hover:underline" x-text="p.codigo"></a></td>
+                <td x-text="CALC.cliente(p.clienteId).nombre"></td>
+                <td x-html="UI.badge(p.estado)"></td>
+                <td class="mono text-right" x-text="cumplimientoProyecto(p).total"></td>
+                <td class="mono text-right" x-text="cumplimientoProyecto(p).done"></td>
+                <td x-html="UI.progress(CALC.avanceProyecto(p.id))"></td>
+                <td class="mono text-right" :style="CALC.incidenciasDeProyecto(p.id).filter(i=>['abierta','en_atencion'].includes(i.estado)).length ? 'color:var(--st-critico);font-weight:600' : ''"
+                  x-text="CALC.incidenciasDeProyecto(p.id).filter(i=>['abierta','en_atencion'].includes(i.estado)).length"></td>
+                <td class="mono text-right text-xs" x-text="UI.fmt.moneda(p.presupuesto)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

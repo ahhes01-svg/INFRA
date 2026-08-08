@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function dashboardPage() {
+  return {
+    init() {
+      this.$nextTick(() => this.montarGraficos());
+    },
+    montarGraficos() {
+      const dias = ['2026-07-30','2026-07-31','2026-08-01','2026-08-02','2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07','2026-08-08'];
+
+      UI.makeChart(this.$refs.chEstados, th => {
+        const acts = Alpine.store('db').actividades;
+        const grupos = [['completada','Completadas'],['en_ejecucion','En ejecución'],['pendiente','Pendientes'],['retrasada','Retrasadas'],['cancelada','Canceladas']];
+        return {
+          type: 'doughnut',
+          data: {
+            labels: grupos.map(g => g[1]),
+            datasets: [{
+              data: grupos.map(g => acts.filter(a => a.estado === g[0]).length),
+              backgroundColor: [th.estado.completado, th.estado.ejecucion, th.estado.pendiente, th.estado.critico, th.estado.cancelado],
+              borderWidth: 2, borderColor: th.dark ? '#1e293b' : '#ffffff',
+            }],
+          },
+          options: { cutout: '64%', scales: null, plugins: { legend: { position: 'right' } } },
+        };
+      });
+
+      UI.makeChart(this.$refs.chProyectos, th => ({
+        type: 'bar',
+        data: {
+          labels: Alpine.store('db').proyectos.map(p => p.codigo),
+          datasets: [{ label: 'Avance %', data: Alpine.store('db').proyectos.map(p => CALC.avanceProyecto(p.id)), backgroundColor: th.series[0] }],
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100, grid: { color: th.grid }, ticks: { color: th.tick, callback: v => v + '%' }, border: { display: false } }, y: { grid: { display: false }, ticks: { color: th.tick, font: { family: "'JetBrains Mono', monospace", size: 10 } }, border: { color: th.grid } } } },
+      }));
+
+      UI.makeChart(this.$refs.chDias, th => ({
+        type: 'line',
+        data: {
+          labels: dias.map(d => UI.fmt.fechaCorta(d)),
+          datasets: [{ label: 'Actividades completadas', data: dias.map(d => Alpine.store('db').actividades.filter(a => a.estado === 'completada' && a.fecha === d).length), borderColor: th.series[0], backgroundColor: th.series[0] }],
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { stepSize: 1, color: th.tick }, grid: { color: th.grid }, border: { display: false }, beginAtZero: true } } },
+      }));
+
+      UI.makeChart(this.$refs.chCategorias, th => {
+        const cats = [...new Set(Alpine.store('db').tiposActividad.map(t => t.categoria))];
+        return {
+          type: 'bar',
+          data: {
+            labels: cats,
+            datasets: [{ label: 'Actividades', data: cats.map(c => Alpine.store('db').actividades.filter(a => CALC.tipo(a.tipoId).categoria === c).length), backgroundColor: th.series[0] }],
+          },
+          options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { stepSize: 2, color: th.tick } } } },
+        };
+      });
+
+      UI.makeChart(this.$refs.chTecnicos, th => {
+        const carga = Alpine.store('db').tecnicos.map(t => ({
+          n: t.nombre.split(' ')[0] + ' ' + t.nombre.split(' ')[1],
+          c: Alpine.store('db').actividades.filter(a => a.tecnicos.includes(t.id) && ['pendiente', 'en_ejecucion', 'retrasada'].includes(a.estado)).length,
+        })).sort((a, b) => b.c - a.c).slice(0, 6);
+        return {
+          type: 'bar',
+          data: { labels: carga.map(x => x.n), datasets: [{ label: 'Actividades activas', data: carga.map(x => x.c), backgroundColor: th.series[0] }] },
+          options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1, color: th.tick }, grid: { color: th.grid }, border: { display: false } }, y: { grid: { display: false }, ticks: { color: th.tick }, border: { color: th.grid } } } },
+        };
+      });
+
+      UI.makeChart(this.$refs.chSeveridad, th => {
+        const sev = [['critica', 'Crítica'], ['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']];
+        return {
+          type: 'bar',
+          data: {
+            labels: sev.map(s => s[1]),
+            datasets: [{ label: 'Incidencias', data: sev.map(s => Alpine.store('db').incidencias.filter(i => i.severidad === s[0]).length), backgroundColor: [th.estado.critico, th.series[1], th.estado.pendiente, th.estado.cancelado] }],
+          },
+          options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { stepSize: 1, color: th.tick } } } },
+        };
+      });
+    },
+    accionRapida(a) {
+      const u = Alpine.store('db').sesion.usuario;
+      if (a.estado === 'pendiente' || a.estado === 'retrasada') {
+        ACCIONES.iniciarActividad(a.id, u);
+        Alpine.store('toasts').push('info', 'Actividad iniciada', `${a.id} · ${CALC.sitio(a.sitioId).codigo}`);
+      } else if (a.estado === 'en_ejecucion') {
+        ACCIONES.completarActividad(a.id, u);
+        Alpine.store('toasts').push('ok', 'Actividad completada', `El avance del proyecto se recalculó a ${CALC.avanceProyecto(a.proyectoId)}%.`);
+      }
+    },
+  };
+}
+</script>
+</head>
+<body data-page="dashboard" data-title="Dashboard" class="bg-surface-0">
+
+<main id="page" x-data="dashboardPage()">
+
+  <!-- ══ CARGA ══ -->
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3" x-html="UI.skel.kpis(10)"></div>
+      <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <template x-for="i in 6"><div class="ui-card" x-html="UI.skel.chart()"></div></template>
+      </div>
+      <div x-html="UI.skel.table(5,7)"></div>
+    </div>
+  </template>
+
+  <!-- ══ VACÍO ══ -->
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({
+      icon:'dashboard', title:'Todavía no hay operación registrada',
+      desc:'Cuando existan proyectos con actividades asignadas, este panel mostrará indicadores, gráficos y la actividad del día.',
+      action: UI.btn({label:'Crear primer proyecto', icon:'plus', attrs:`onclick=\"location.href='proyectos.html'\"`})
+    })"></div>
+  </template>
+
+  <!-- ══ ERROR ══ -->
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({
+      desc:'No se pudo consultar el servicio de indicadores (tiempo de espera agotado, 30 s). Los datos mostrados podrían estar desactualizados.',
+      retryAttr:`@click=\"$store.ui.setView('data')\"`
+    })"></div>
+  </template>
+
+  <!-- ══ DATOS ══ -->
+  <div x-show="$store.ui.view==='data'" class="space-y-5">
+
+    <!-- 10 tarjetas de indicadores (todas calculadas, con conteo animado) -->
+    <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3" aria-label="Indicadores del día">
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('clipboard',13)+'Actividades hoy'"></span>
+        <span class="kpi-value" x-countup="CALC.kpis().actividadesHoy">0</span>
+        <span class="kpi-delta" x-text="UI.fmt.diaLargo($store.ui.hoy)"></span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('zap',13)+'En ejecución'"></span>
+        <span class="kpi-value" style="color:var(--st-ejecucion)" x-countup="CALC.kpis().enEjecucion">0</span>
+        <span class="kpi-delta">cuadrillas activas ahora</span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('checkCircle',13)+'Completadas (semana)'"></span>
+        <span class="kpi-value" style="color:var(--st-completado)" x-countup="CALC.kpis().completadasSemana">0</span>
+        <span class="kpi-delta">desde el lun 03 ago</span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('clock',13)+'Retrasadas'"></span>
+        <span class="kpi-value" style="color:var(--st-critico)" x-countup="CALC.kpis().retrasadas">0</span>
+        <span class="kpi-delta">requieren reprogramación</span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('chart',13)+'Avance global'"></span>
+        <span class="kpi-value" x-countup="CALC.kpis().avanceGlobal" data-suffix="%">0%</span>
+        <span class="kpi-delta">promedio de 3 proyectos</span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('alert',13)+'Incidencias abiertas'"></span>
+        <span class="kpi-value" x-countup="CALC.kpis().incidenciasAbiertas">0</span>
+        <span class="kpi-delta"><span style="color:var(--st-critico)" class="font-semibold" x-text="CALC.kpis().incidenciasVencidas"></span>&nbsp;vencida(s)</span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('users',13)+'Técnicos en campo'"></span>
+        <span class="kpi-value" x-countup="CALC.kpis().tecnicosEnCampo">0</span>
+        <span class="kpi-delta" x-text="'de ' + $store.db.tecnicos.length + ' en planilla'"></span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('tower',13)+'BTS en alarma'"></span>
+        <span class="kpi-value" style="color:var(--st-critico)" x-countup="CALC.kpis().btsAlarma">0</span>
+        <span class="kpi-delta" x-text="'de ' + CALC.kpis().sitiosTotal + ' sitios gestionados'"></span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('camera',13)+'Evidencias por revisar'"></span>
+        <span class="kpi-value" style="color:var(--st-pendiente)" x-countup="CALC.kpis().evidenciasPorRevisar">0</span>
+        <span class="kpi-delta" x-text="CALC.kpis().evidenciasHoy + ' subidas hoy'"></span>
+      </div>
+      <div class="ui-card ui-kpi">
+        <span class="kpi-label" x-html="UI.icon('box',13)+'Materiales críticos'"></span>
+        <span class="kpi-value" x-countup="CALC.kpis().materialesCriticos">0</span>
+        <span class="kpi-delta">bajo mínimo o sin stock</span>
+      </div>
+    </section>
+
+    <!-- 6 gráficos -->
+    <section class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" aria-label="Gráficos de operación">
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Actividades por estado</h2>
+        <div class="h-56"><canvas x-ref="chEstados" role="img" aria-label="Distribución de las 30 actividades por estado"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Avance por proyecto</h2>
+        <div class="h-56"><canvas x-ref="chProyectos" role="img" aria-label="Porcentaje de avance por proyecto"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Completadas por día — últimos 10 días</h2>
+        <div class="h-56"><canvas x-ref="chDias" role="img" aria-label="Actividades completadas por día"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Actividades por categoría</h2>
+        <div class="h-56"><canvas x-ref="chCategorias" role="img" aria-label="Actividades por categoría de trabajo"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Carga activa por técnico (top 6)</h2>
+        <div class="h-56"><canvas x-ref="chTecnicos" role="img" aria-label="Actividades activas por técnico"></canvas></div>
+      </div>
+      <div class="ui-card p-4">
+        <h2 class="text-sm font-semibold mb-3">Incidencias por severidad</h2>
+        <div class="h-56"><canvas x-ref="chSeveridad" role="img" aria-label="Incidencias por severidad"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Tabla: actividad de hoy -->
+    <section aria-label="Actividad de hoy">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Actividad de hoy <span class="text-ink-3 text-sm font-normal mono" x-text="'· ' + $store.ui.hoy"></span></h2>
+        <a :href="$store.ui.href('actividades')" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Ver todas →</a>
+      </div>
+      <div class="ui-table-wrap">
+        <table class="ui-table" aria-label="Actividades programadas para hoy">
+          <thead><tr>
+            <th class="col-sticky">ID</th><th>Actividad</th><th>Sitio</th><th>Cuadrilla</th><th>Horario</th><th>Estado</th><th>Avance</th><th><span class="sr-only">Acciones</span></th>
+          </tr></thead>
+          <tbody>
+            <template x-for="a in CALC.actividadesHoy()" :key="a.id">
+              <tr>
+                <td class="col-sticky mono text-xs" x-text="a.id"></td>
+                <td x-text="CALC.tipo(a.tipoId).nombre"></td>
+                <td><a :href="$store.ui.href('bts-detalle') + '&id=' + a.sitioId" class="mono text-xs text-brand-600 dark:text-brand-400 hover:underline" x-text="CALC.sitio(a.sitioId).codigo"></a></td>
+                <td><span class="ui-avatar-stack" x-html="a.tecnicos.map(t => UI.avatar(CALC.tecnico(t), 24)).join('')"></span></td>
+                <td class="mono text-xs" x-text="(a.inicioReal || a.hIni) + '–' + (a.finReal || a.hFin)"></td>
+                <td x-html="UI.badge(a.estado)"></td>
+                <td x-html="UI.progress(CALC.avanceActividad(a), {estado: a.estado==='retrasada' ? 'critico' : ''})"></td>
+                <td class="row-actions text-right whitespace-nowrap">
+                  <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="['pendiente','retrasada'].includes(a.estado)"
+                    @click="accionRapida(a)" x-html="UI.icon('play',12)+' Iniciar'"></button>
+                  <button class="ui-btn ui-btn-primary ui-btn-sm" x-show="a.estado==='en_ejecucion'"
+                    @click="accionRapida(a)" x-html="UI.icon('check',12)+' Completar'"></button>
+                  <a :href="$store.ui.href('actividades') + '&id=' + a.id" class="ui-btn ui-btn-ghost ui-btn-sm" x-tooltip="'Ver detalle'" aria-label="Ver detalle" x-html="UI.icon('eye',14)"></a>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!CALC.actividadesHoy().length">
+              <td colspan="8" x-html="UI.emptyState({icon:'calendar', title:'Sin actividades programadas para hoy', desc:'Programa trabajo desde la Agenda para verlo aquí.'})"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

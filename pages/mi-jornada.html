@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi jornada · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+// Vista de técnico diseñada para el celular en campo:
+// objetivos táctiles de 44px+, acciones primarias en el tercio inferior,
+// alto contraste para sol directo, subir evidencia en dos toques.
+function jornadaPage() {
+  return {
+    hoja: null,          // 'avance' | 'incidencia' | 'evidencia' → bottom sheet
+    actSel: null,
+    inc: { titulo: '', severidad: 'media' },
+    incTocado: false,
+    get yo() { return CALC.tecnico(Alpine.store('db').sesion.tecnicoDemoId); },
+    get misActs() {
+      return CALC.actividadesDeTecnico(this.yo.id, window.HOY)
+        .sort((a, b) => a.hIni.localeCompare(b.hIni));
+    },
+    get actual() { return this.misActs.find(a => a.estado === 'en_ejecucion') || null; },
+    get a() { return this.actSel ? CALC.actividad(this.actSel) : null; },
+
+    iniciar(a) {
+      ACCIONES.iniciarActividad(a.id, this.yo.nombre);
+      Alpine.store('toasts').push('info', 'Jornada iniciada', `${CALC.sitio(a.sitioId).codigo} · hora registrada.`);
+    },
+    finalizar(a) {
+      ACCIONES.completarActividad(a.id, this.yo.nombre);
+      this.hoja = null;
+      Alpine.store('toasts').push('ok', '¡Actividad finalizada!', 'El supervisor verá el cierre al instante.');
+    },
+    abrirAvance(a) { this.actSel = a.id; this.hoja = 'avance'; },
+    abrirEvidencia(a) { this.actSel = a.id; this.hoja = 'evidencia'; },
+    abrirIncidencia(a) { this.actSel = a.id; this.hoja = 'incidencia'; this.inc = { titulo: '', severidad: 'media' }; this.incTocado = false; },
+    marcar(idx) { ACCIONES.toggleChecklist(this.actSel, idx, this.yo.nombre); },
+    // Dos toques: 1) botón "Subir evidencia" en la tarjeta → 2) confirmar tipo
+    confirmarEvidencia(tipo, titulo) {
+      ACCIONES.subirEvidencia(this.actSel, tipo, titulo, this.yo.nombre, this.yo.id);
+      this.hoja = null;
+      Alpine.store('toasts').push('ok', 'Evidencia subida', 'Quedó en revisión del supervisor.');
+    },
+    reportarIncidencia() {
+      this.incTocado = true;
+      if (this.inc.titulo.trim().length < 8) return;
+      const act = this.a;
+      ACCIONES.crearIncidencia({
+        titulo: this.inc.titulo, descripcion: 'Reportada desde campo (Mi jornada).',
+        severidad: this.inc.severidad, sitioId: act.sitioId, actividadId: act.id, fechaLimite: '2026-08-15',
+      }, this.yo.nombre, this.yo.id);
+      this.hoja = null;
+      Alpine.store('toasts').push('ok', 'Incidencia reportada', 'Visible en el dashboard y la campana del supervisor.');
+    },
+  };
+}
+</script>
+</head>
+<body data-page="mi-jornada" data-title="Mi jornada" data-layout="mobile" class="bg-surface-0">
+
+<main id="page" x-data="jornadaPage()" class="max-w-md mx-auto px-4 pb-40 pt-4">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="space-y-3">
+      <div class="ui-card p-4 flex gap-3 items-center" aria-hidden="true">
+        <div class="ui-skel" style="width:40px;height:40px;border-radius:999px"></div>
+        <div class="flex-1 space-y-2"><div class="ui-skel" style="width:55%;height:14px"></div><div class="ui-skel" style="width:35%;height:11px"></div></div>
+      </div>
+      <div x-html="UI.skel.cards(3)"></div>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-6" x-html="UI.emptyState({ icon:'calendar', title:'Hoy no tienes actividades', desc:'Disfruta el descanso o consulta con tu supervisor. Cuando te asignen trabajo aparecerá aquí.' })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+
+    <!-- Saludo -->
+    <div class="flex items-center gap-3">
+      <span x-html="UI.avatar(yo, 40)"></span>
+      <div class="min-w-0">
+        <p class="font-semibold text-base truncate" x-text="'Hola, ' + yo.nombre.split(' ')[0]"></p>
+        <p class="text-sm text-ink-2" x-text="misActs.length + ' actividad(es) hoy · ' + misActs.filter(a=>a.estado==='completada').length + ' completadas'"></p>
+      </div>
+      <span class="ml-auto" x-html="UI.badge(yo.estado)"></span>
+    </div>
+
+    <!-- Actividades del día -->
+    <template x-for="act in misActs" :key="act.id">
+      <article class="ui-card p-4" :class="act.estado==='en_ejecucion' && 'ring-2 ring-brand-500'">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <span class="mono text-sm font-semibold" x-text="act.hIni + '–' + act.hFin"></span>
+          <span x-html="UI.badge(act.estado)"></span>
+        </div>
+        <h2 class="font-semibold text-base mt-1.5" x-text="CALC.tipo(act.tipoId).nombre"></h2>
+        <p class="mono text-sm text-brand-600 dark:text-brand-400 mt-0.5" x-text="CALC.sitio(act.sitioId).codigo"></p>
+        <p class="text-sm text-ink-2 flex items-start gap-1.5 mt-1">
+          <span class="mt-0.5 flex-none" x-html="UI.icon('pin',13)"></span>
+          <span x-text="CALC.sitio(act.sitioId).direccion"></span>
+        </p>
+        <div class="mt-3" x-show="act.checklist.length || act.estado==='en_ejecucion'" x-html="UI.progress(CALC.avanceActividad(act))"></div>
+
+        <!-- Acciones grandes (44px+) -->
+        <div class="grid gap-2 mt-4" x-show="act.estado!=='completada' && act.estado!=='cancelada'">
+          <button class="ui-btn ui-btn-primary ui-btn-lg w-full" x-show="['pendiente','retrasada'].includes(act.estado)"
+            @click="iniciar(act)" x-html="UI.icon('play',17)+' Iniciar actividad'"></button>
+          <template x-if="act.estado==='en_ejecucion'">
+            <div class="grid grid-cols-2 gap-2">
+              <button class="ui-btn ui-btn-secondary ui-btn-lg" @click="abrirAvance(act)" x-html="UI.icon('clipboard',16)+' Avance'"></button>
+              <button class="ui-btn ui-btn-secondary ui-btn-lg" @click="abrirEvidencia(act)" x-html="UI.icon('camera',16)+' Evidencia'"></button>
+              <button class="ui-btn ui-btn-secondary ui-btn-lg" @click="abrirIncidencia(act)" x-html="UI.icon('alert',16)+' Incidencia'"></button>
+              <button class="ui-btn ui-btn-primary ui-btn-lg" @click="finalizar(act)" x-html="UI.icon('check',16)+' Finalizar'"></button>
+            </div>
+          </template>
+        </div>
+        <p class="text-sm text-ink-2 mt-3 flex items-center gap-1.5" x-show="act.estado==='completada'"
+          x-html="UI.icon('checkCircle',15) + ` Trabajo cerrado ${act.finReal ? 'a las <span class=&quot;mono&quot;>' + act.finReal + '</span>' : ''}`"></p>
+      </article>
+    </template>
+
+    <div class="ui-card" x-show="!misActs.length"
+      x-html="UI.emptyState({icon:'calendar', title:'Hoy no tienes actividades asignadas', desc:'Cuando el supervisor te asigne trabajo lo verás aquí.'})"></div>
+  </div>
+
+  <!-- Bottom sheet: registrar avance (checklist) -->
+  <template x-if="hoja==='avance' && a">
+    <div @keydown.escape.window="hoja=null">
+      <div class="ui-backdrop" @click="hoja=null"></div>
+      <div class="fixed inset-x-0 bottom-0 z-[75] bg-surface-1 border-t border-line rounded-t-2xl shadow-e3 max-w-md mx-auto max-h-[80vh] flex flex-col"
+        x-transition:enter="tr-250" x-transition:enter-start="translate-y-full" role="dialog" aria-modal="true" aria-label="Registrar avance">
+        <div class="p-4 border-b border-line flex items-center justify-between flex-none">
+          <div>
+            <p class="font-semibold">Registrar avance</p>
+            <p class="mono text-xs text-ink-3" x-text="a.id + ' · ' + a.checklist.filter(i=>i.ok).length + '/' + a.checklist.length + ' ítems'"></p>
+          </div>
+          <span class="w-28" x-html="UI.progress(CALC.avanceActividad(a))"></span>
+        </div>
+        <div class="p-3 overflow-y-auto">
+          <template x-for="(item, idx) in a.checklist" :key="idx">
+            <label class="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-2 cursor-pointer min-h-[44px]">
+              <input type="checkbox" class="ui-check mt-0.5 !w-5 !h-5" :checked="item.ok" @change="marcar(idx)">
+              <span class="text-base" :class="item.ok && 'line-through text-ink-3'" x-text="item.t"></span>
+            </label>
+          </template>
+          <p class="text-sm text-ink-3 p-3" x-show="!a.checklist.length">Esta actividad no tiene checklist estructurado.</p>
+        </div>
+        <div class="p-4 border-t border-line flex-none">
+          <button class="ui-btn ui-btn-primary ui-btn-lg w-full" @click="hoja=null">Listo</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Bottom sheet: subir evidencia (2.º toque = confirmar tipo) -->
+  <template x-if="hoja==='evidencia' && a">
+    <div @keydown.escape.window="hoja=null">
+      <div class="ui-backdrop" @click="hoja=null"></div>
+      <div class="fixed inset-x-0 bottom-0 z-[75] bg-surface-1 border-t border-line rounded-t-2xl shadow-e3 max-w-md mx-auto"
+        x-transition:enter="tr-250" x-transition:enter-start="translate-y-full" role="dialog" aria-modal="true" aria-label="Subir evidencia">
+        <div class="p-4 border-b border-line">
+          <p class="font-semibold">Subir evidencia</p>
+          <p class="text-xs text-ink-3">Un toque más y la foto queda registrada con tu hora actual.</p>
+        </div>
+        <div class="p-4 grid gap-2 pb-6">
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_antes','Foto antes del trabajo')" x-html="UI.icon('camera',17)+' Foto — antes del trabajo'"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_avance','Foto de avance de obra')" x-html="UI.icon('camera',17)+' Foto — avance'"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_despues','Foto después del trabajo')" x-html="UI.icon('camera',17)+' Foto — después del trabajo'"></button>
+          <button class="ui-btn ui-btn-ghost ui-btn-lg w-full" @click="hoja=null">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Bottom sheet: registrar incidencia -->
+  <template x-if="hoja==='incidencia' && a">
+    <div @keydown.escape.window="hoja=null">
+      <div class="ui-backdrop" @click="hoja=null"></div>
+      <div class="fixed inset-x-0 bottom-0 z-[75] bg-surface-1 border-t border-line rounded-t-2xl shadow-e3 max-w-md mx-auto"
+        x-transition:enter="tr-250" x-transition:enter-start="translate-y-full" role="dialog" aria-modal="true" aria-label="Registrar incidencia">
+        <div class="p-4 border-b border-line">
+          <p class="font-semibold">Registrar incidencia</p>
+          <p class="mono text-xs text-ink-3" x-text="CALC.sitio(a.sitioId).codigo + ' · ' + a.id"></p>
+        </div>
+        <div class="p-4 space-y-4 pb-6">
+          <div>
+            <label class="ui-label" for="mj-inc">¿Qué encontraste? *</label>
+            <textarea id="mj-inc" class="ui-textarea !text-base" :class="incTocado && inc.titulo.trim().length<8 && 'is-invalid'"
+              x-model="inc.titulo" placeholder="Ej. Breaker principal disparado, olor a quemado en rectificador" @input="incTocado=true"></textarea>
+            <p class="ui-error" x-show="incTocado && inc.titulo.trim().length<8" x-cloak>
+              <span x-html="UI.icon('alertCircle',12)"></span>Describe el hallazgo (mínimo 8 caracteres)</p>
+          </div>
+          <div>
+            <p class="ui-label">Severidad</p>
+            <div class="grid grid-cols-4 gap-2" role="group" aria-label="Severidad">
+              <template x-for="s in ['critica','alta','media','baja']" :key="s">
+                <button class="ui-btn ui-btn-lg" style="padding:0 4px"
+                  :class="inc.severidad===s ? 'ui-btn-primary' : 'ui-btn-secondary'"
+                  @click="inc.severidad=s" :aria-pressed="inc.severidad===s" x-text="UI.estadoInfo(s).label"></button>
+              </template>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="ui-btn ui-btn-secondary ui-btn-lg" @click="hoja=null">Cancelar</button>
+            <button class="ui-btn ui-btn-danger ui-btn-lg" @click="reportarIncidencia()" x-html="UI.icon('alert',16)+' Reportar'"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Barra fija inferior: acción principal siempre al alcance del pulgar -->
+  <div class="fixed inset-x-0 bottom-0 z-40 bg-surface-1 border-t border-line" x-show="$store.ui.view==='data' && !hoja">
+    <div class="max-w-md mx-auto p-3 pb-4">
+      <template x-if="actual">
+        <div class="grid grid-cols-4 gap-2">
+          <button class="ui-btn ui-btn-secondary ui-btn-lg flex-col !h-14 !text-xs gap-1" @click="abrirAvance(actual)">
+            <span x-html="UI.icon('clipboard',18)"></span>Avance</button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg flex-col !h-14 !text-xs gap-1" @click="abrirEvidencia(actual)">
+            <span x-html="UI.icon('camera',18)"></span>Evidencia</button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg flex-col !h-14 !text-xs gap-1" @click="abrirIncidencia(actual)">
+            <span x-html="UI.icon('alert',18)"></span>Incidencia</button>
+          <button class="ui-btn ui-btn-primary ui-btn-lg flex-col !h-14 !text-xs gap-1" @click="finalizar(actual)">
+            <span x-html="UI.icon('check',18)"></span>Finalizar</button>
+        </div>
+      </template>
+      <template x-if="!actual">
+        <p class="text-center text-sm text-ink-3 py-2">
+          <span x-show="misActs.some(a=>['pendiente','retrasada'].includes(a.estado))">Inicia tu siguiente actividad desde su tarjeta ↑</span>
+          <span x-show="!misActs.some(a=>['pendiente','retrasada'].includes(a.estado))">Jornada completa. ¡Buen trabajo! 🎉</span>
+        </p>
+      </template>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

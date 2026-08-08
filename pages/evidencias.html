@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evidencias · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script src="../js/data.js"></script>
+<script defer src="../js/layout.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+function evidenciasPage() {
+  return {
+    fTipo: '', fEstado: '', vista: null, // vista = evidencia en lightbox
+    lista() {
+      return Alpine.store('db').evidencias
+        .filter(e => !this.fTipo || e.tipo === this.fTipo)
+        .filter(e => !this.fEstado || e.estado === this.fEstado);
+    },
+    tipoLabel(t) {
+      return { foto_antes: 'Foto — antes', foto_despues: 'Foto — después', foto_avance: 'Foto — avance', reporte: 'Reporte firmado' }[t] || t;
+    },
+    aprobar(e) {
+      ACCIONES.aprobarEvidencia(e.id, Alpine.store('db').sesion.usuario);
+      Alpine.store('toasts').push('ok', 'Evidencia aprobada', e.id);
+    },
+  };
+}
+</script>
+</head>
+<body data-page="evidencias" data-title="Evidencias" class="bg-surface-0">
+
+<main id="page" x-data="evidenciasPage()">
+
+  <template x-if="$store.ui.view==='loading'">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <template x-for="i in 8">
+        <div class="ui-card overflow-hidden" aria-hidden="true">
+          <div class="ui-skel" style="height:128px;border-radius:0"></div>
+          <div class="p-2.5 space-y-2"><div class="ui-skel" style="width:80%;height:11px"></div><div class="ui-skel" style="width:50%;height:10px"></div></div>
+        </div>
+      </template>
+    </div>
+  </template>
+  <template x-if="$store.ui.view==='empty'">
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'camera', title:'Aún no hay evidencias', desc:'Cuando la cuadrilla suba fotos y actas desde campo aparecerán en esta galería, agrupadas por actividad.', action: UI.btn({label:'Subir evidencia', icon:'upload'}) })"></div>
+  </template>
+  <template x-if="$store.ui.view==='error'">
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=\"$store.ui.setView('data')\"` })"></div>
+  </template>
+
+  <div x-show="$store.ui.view==='data'" class="space-y-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <select class="ui-select" style="width:170px" x-model="fTipo" aria-label="Tipo de evidencia">
+        <option value="">Todos los tipos</option><option value="foto_antes">Foto — antes</option>
+        <option value="foto_despues">Foto — después</option><option value="foto_avance">Foto — avance</option><option value="reporte">Reporte firmado</option>
+      </select>
+      <select class="ui-select" style="width:160px" x-model="fEstado" aria-label="Estado de revisión">
+        <option value="">Todo estado</option><option value="en_revision">En revisión</option><option value="aprobada">Aprobada</option>
+      </select>
+      <p class="text-sm text-ink-2 ml-auto">
+        <span class="font-semibold" style="color:var(--st-pendiente)" x-text="$store.db.evidencias.filter(e=>e.estado==='en_revision').length"></span>
+        por revisar de <span x-text="$store.db.evidencias.length"></span>
+      </p>
+      <button class="ui-btn ui-btn-primary ui-btn-md" @click="UI.protoNotice()" x-html="UI.icon('upload',15)+' Subir evidencia'"></button>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <template x-for="e in lista()" :key="e.id">
+        <figure class="ui-card overflow-hidden hover:shadow-e2 tr-200">
+          <button class="block w-full relative group" @click="vista=e" :aria-label="'Ampliar ' + e.titulo">
+            <img :src="e.archivo" :alt="e.titulo" loading="lazy" class="w-full h-32 object-cover">
+            <span class="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/30 tr-200 flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 tr-200 text-white" x-html="UI.icon('eye',22)"></span>
+            </span>
+          </button>
+          <figcaption class="p-2.5">
+            <p class="text-xs font-medium truncate" :title="e.titulo" x-text="e.titulo"></p>
+            <p class="text-xs text-ink-3 mt-0.5" x-text="tipoLabel(e.tipo)"></p>
+            <div class="flex items-center justify-between mt-1.5">
+              <span class="mono text-xs text-ink-3" x-text="e.actividadId"></span>
+              <span x-html="UI.badge(e.estado)"></span>
+            </div>
+            <div class="flex items-center justify-between mt-1.5 pt-1.5 border-t border-line">
+              <span class="flex items-center gap-1.5 min-w-0">
+                <span x-html="UI.avatar(CALC.tecnico(e.subidoPor), 24)"></span>
+                <span class="mono text-xs text-ink-3" x-text="e.fecha.slice(5) + ' ' + e.hora"></span>
+              </span>
+              <button class="ui-btn ui-btn-secondary ui-btn-sm" x-show="e.estado==='en_revision' && $store.ui.puede('aprobar')"
+                @click="aprobar(e)">Aprobar</button>
+            </div>
+          </figcaption>
+        </figure>
+      </template>
+    </div>
+    <div class="ui-card" x-show="!lista().length"
+      x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ninguna evidencia coincide con los filtros.'})"></div>
+  </div>
+
+  <!-- Lightbox -->
+  <template x-if="vista">
+    <div @keydown.escape.window="vista=null">
+      <div class="ui-backdrop" @click="vista=null"></div>
+      <div class="ui-modal" role="dialog" aria-modal="true" :aria-label="vista.titulo">
+        <div class="ui-modal-box" style="max-width:720px" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+          <div class="ui-modal-head">
+            <div>
+              <h3 class="font-semibold" x-text="vista.titulo"></h3>
+              <p class="text-xs text-ink-3 mono" x-text="`${vista.id} · ${vista.actividadId} · ${vista.fecha} ${vista.hora} · ${CALC.tecnico(vista.subidoPor).nombre}`"></p>
+            </div>
+            <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="vista=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+          </div>
+          <img :src="vista.archivo.replace('640/480','1024/640')" :alt="vista.titulo" class="w-full max-h-[60vh] object-contain bg-surface-2">
+          <div class="ui-modal-foot">
+            <span class="mr-auto" x-html="UI.badge(vista.estado)"></span>
+            <button class="ui-btn ui-btn-secondary ui-btn-md" @click="UI.protoNotice()" x-html="UI.icon('download',14)+' Descargar'"></button>
+            <button class="ui-btn ui-btn-primary ui-btn-md" x-show="vista.estado==='en_revision' && $store.ui.puede('aprobar')"
+              @click="aprobar(vista); vista=null">Aprobar evidencia</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</main>
+
+</body>
+</html>

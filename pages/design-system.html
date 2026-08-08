@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de diseño · NettOps Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../js/tokens.js"></script>
+<script src="../js/components.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<script>
+// Datos de muestra SOLO para especímenes del catálogo
+function dsPage() {
+  return {
+    dark: false,
+    toggleTheme() {
+      this.dark = !this.dark;
+      document.documentElement.classList.toggle('dark', this.dark);
+      window.dispatchEvent(new CustomEvent('app:theme'));
+    },
+    demoRows() {
+      return [
+        { id: 'ACT-0007', sitio: 'IC-PISCO-0342', tipo: 'Comisionamiento 5G', tecnico: 'R. Quispe Huamán', fecha: '2026-08-08', estado: 'en_ejecucion', avance: 65 },
+        { id: 'ACT-0004', sitio: 'IC-SUBTANJALLA-0117', tipo: 'Instalación de antenas RF', tecnico: 'M. Ccahuana Flores', fecha: '2026-08-07', estado: 'completada', avance: 100 },
+        { id: 'ACT-0011', sitio: 'IC-CHINCHA-0412', tipo: 'Mantenimiento preventivo', tecnico: 'J. Aparcana Donayre', fecha: '2026-08-08', estado: 'pendiente', avance: 0 },
+        { id: 'ACT-0013', sitio: 'IC-NAZCA-0509', tipo: 'Medición de PIM', tecnico: 'L. Uchuya Mesías', fecha: '2026-08-05', estado: 'retrasada', avance: 30 },
+        { id: 'ACT-0016', sitio: 'IC-PARACAS-0288', tipo: 'Drive test', tecnico: 'C. Yataco Magallanes', fecha: '2026-08-06', estado: 'cancelada', avance: 0 },
+        { id: 'ACT-0019', sitio: 'IC-TINGUINA-0064', tipo: 'Cambio de baterías', tecnico: 'R. Quispe Huamán', fecha: '2026-08-09', estado: 'pendiente', avance: 0 },
+        { id: 'ACT-0021', sitio: 'IC-GROCIOPRADO-0147', tipo: 'Medición de ROE/VSWR', tecnico: 'A. Peña Tasayco', fecha: '2026-08-04', estado: 'completada', avance: 100 },
+      ];
+    },
+  };
+}
+</script>
+</head>
+<body class="bg-surface-0 text-ink-1 font-sans" x-data="dsPage()">
+
+<header class="sticky top-0 z-40 bg-surface-1 border-b border-line px-6 h-14 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <span class="text-brand-600 dark:text-brand-400" x-html="UI.icon('tower', 22)"></span>
+    <div>
+      <p class="font-semibold text-base leading-none">Sistema de diseño</p>
+      <p class="text-xs text-ink-3 mono mt-0.5">NettOps Perú · v1.0</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="../index.html" class="ui-btn ui-btn-ghost ui-btn-sm">← Volver al login</a>
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="toggleTheme()" :aria-pressed="dark">
+      <span x-html="dark ? UI.icon('sun',13) : UI.icon('moon',13)"></span>
+      <span x-text="dark ? 'Modo claro' : 'Modo oscuro'"></span>
+    </button>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-8 space-y-12">
+
+  <!-- ══════════ FUNDAMENTOS ══════════ -->
+  <section>
+    <h2 class="text-xl font-semibold mb-1">Fundamentos</h2>
+    <p class="text-sm text-ink-2 mb-6">Grises fríos, un solo acento, color saturado reservado a estados. Espaciado ×4px, 3 niveles de elevación, 5 tamaños de texto.</p>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="ui-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Superficies y tintas</h3>
+        <div class="grid grid-cols-4 gap-2 text-xs">
+          <template x-for="s in [['--s0','surface-0','página'],['--s1','surface-1','tarjeta'],['--s2','surface-2','hueco'],['--s3','surface-3','pista']]">
+            <div>
+              <div class="h-12 rounded border border-line" :style="`background:var(${s[0]})`"></div>
+              <p class="mono mt-1" x-text="s[1]"></p><p class="text-ink-3" x-text="s[2]"></p>
+            </div>
+          </template>
+        </div>
+        <div class="mt-4 space-y-1">
+          <p class="text-base text-ink-1">ink-1 · Texto principal</p>
+          <p class="text-base text-ink-2">ink-2 · Texto secundario</p>
+          <p class="text-base text-ink-3">ink-3 · Texto atenuado</p>
+          <p class="text-base text-brand-600 dark:text-brand-400 font-medium">brand · Acento único de marca</p>
+        </div>
+      </div>
+
+      <div class="ui-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Estados operativos — único color saturado</h3>
+        <div class="space-y-2">
+          <template x-for="e in [['completado','Completado / Aprobado'],['ejecucion','En ejecución'],['pendiente','Pendiente / En revisión'],['critico','Retrasado / Crítico'],['cancelado','Cancelado']]">
+            <div class="flex items-center gap-3">
+              <span class="w-8 h-8 rounded border" :style="`background:var(--st-${e[0]}-bg);border-color:var(--st-${e[0]}-bd)`"></span>
+              <span class="mono text-xs w-24" x-text="e[0]"></span>
+              <span class="text-sm font-medium" :style="`color:var(--st-${e[0]})`" x-text="e[1]"></span>
+            </div>
+          </template>
+        </div>
+        <p class="text-xs text-ink-3 mt-3">El estado nunca se comunica solo por color: siempre punto + etiqueta.</p>
+      </div>
+
+      <div class="ui-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Tipografía — 5 tamaños</h3>
+        <div class="space-y-2">
+          <p class="text-xl font-semibold">24px — Titular de módulo</p>
+          <p class="text-lg font-semibold">18px — Sección / tarjeta</p>
+          <p class="text-base">14px — Cuerpo de interfaz</p>
+          <p class="text-sm text-ink-2">13px — Tablas y controles</p>
+          <p class="text-xs text-ink-3 font-medium uppercase tracking-wider">11px — Etiquetas y metadatos</p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-line">
+          <p class="text-xs text-ink-3 mb-1">JetBrains Mono — códigos, coordenadas, IDs, horarios</p>
+          <p class="mono text-sm">IC-SUBTANJALLA-0117 · -14.01110, -75.75190 · 08:15–11:35</p>
+        </div>
+      </div>
+
+      <div class="ui-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Elevación — 3 niveles</h3>
+        <div class="grid grid-cols-3 gap-3 text-xs text-center">
+          <div class="bg-surface-1 border border-line rounded p-4 shadow-e1">e1<br><span class="text-ink-3">tarjeta</span></div>
+          <div class="bg-surface-1 border border-line rounded p-4 shadow-e2">e2<br><span class="text-ink-3">dropdown</span></div>
+          <div class="bg-surface-1 border border-line rounded p-4 shadow-e3">e3<br><span class="text-ink-3">modal</span></div>
+        </div>
+        <h3 class="text-sm font-semibold mt-5 mb-2">Movimiento</h3>
+        <p class="text-xs text-ink-2">150–250 ms, <span class="mono">ease-out</span>. Con propósito: confirmar, orientar, revelar. Respeta <span class="mono">prefers-reduced-motion</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ BOTONES ══════════ -->
+  <section>
+    <h2 class="text-xl font-semibold mb-1">Botón</h2>
+    <p class="text-sm text-ink-2 mb-4">4 variantes × 3 tamaños · reposo / hover / foco / activo / deshabilitado / cargando</p>
+    <div class="ui-card p-5 space-y-5">
+      <template x-for="v in ['primary','secondary','ghost','danger']" :key="v">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="mono text-xs w-20 text-ink-3" x-text="v"></span>
+          <span x-html="UI.btn({label:'Pequeño', variant:v, size:'sm'})"></span>
+          <span x-html="UI.btn({label:'Mediano', variant:v, size:'md', icon:'plus'})"></span>
+          <span x-html="UI.btn({label:'Grande', variant:v, size:'lg'})"></span>
+          <span x-html="UI.btn({label:'Deshabilitado', variant:v, size:'md', disabled:true})"></span>
+          <span x-html="UI.btn({label:'Guardando…', variant:v, size:'md', loading:true})"></span>
+        </div>
+      </template>
+      <p class="text-xs text-ink-3">El foco por teclado muestra anillo azul (probar con Tab). El estado activo hunde el botón 1px.</p>
+    </div>
+  </section>
+
+  <!-- ══════════ BADGES / KPI / PROGRESO / AVATAR ══════════ -->
+  <section class="grid md:grid-cols-2 gap-6">
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Badge de estado</h2>
+      <div class="ui-card p-5 space-y-3">
+        <div class="flex flex-wrap gap-2" x-html="['completada','en_ejecucion','pendiente','en_revision','retrasada','cancelada'].map(e => UI.badge(e)).join('')"></div>
+        <div class="flex flex-wrap gap-2" x-html="['aprobado','operativo','abierta','critica','vencida','sin_stock','alarma','descanso'].map(e => UI.badge(e)).join('')"></div>
+        <p class="text-xs text-ink-3">Severidades de incidencia:</p>
+        <div class="flex flex-wrap gap-2" x-html="['critica','alta','media','baja'].map(e => UI.badge(e)).join('')"></div>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Barra de progreso</h2>
+      <div class="ui-card p-5 space-y-3">
+        <div x-html="UI.progress(0)"></div>
+        <div x-html="UI.progress(38)"></div>
+        <div x-html="UI.progress(62)"></div>
+        <div x-html="UI.progress(45, {estado:'critico'})"></div>
+        <div x-html="UI.progress(100)"></div>
+        <p class="text-xs text-ink-3">Azul en curso · rojo retrasado · verde al 100%. Anima el ancho en 250 ms.</p>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Avatar de técnico</h2>
+      <div class="ui-card p-5 space-y-4">
+        <div class="flex items-center gap-3"
+          x-html="[24,32,40,64].map(s => UI.avatar({nombre:'Rosa Quispe Huamán'}, s)).join('')"></div>
+        <div class="flex items-center gap-4">
+          <span class="ui-avatar-stack"
+            x-html="['Marco Ccahuana','Julia Aparcana','Luis Uchuya','Alberto Peña'].map(n => UI.avatar({nombre:n}, 32)).join('')"></span>
+          <span class="text-xs text-ink-3">Cuadrilla (apilado) — técnico sin foto cae a iniciales</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Tarjeta de indicador</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div x-html="UI.kpi({label:'Actividades hoy', value:'12', icon:'clipboard', delta:'+3 vs ayer', deltaDir:'up'})"></div>
+        <div x-html="UI.kpi({label:'BTS en alarma', value:'2', icon:'alert', estado:'critico', delta:'1 crítica', deltaDir:'down'})"></div>
+        <div x-html="UI.kpi({label:'Avance global', value:'62%', icon:'chart'})"></div>
+        <div x-html="UI.kpi({label:'Técnicos en campo', value:'7', icon:'users', delta:'de 10 activos'})"></div>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Tooltip y menú contextual</h2>
+      <div class="ui-card p-5 flex flex-wrap items-center gap-4" x-data="ctxMenu()">
+        <button class="ui-btn ui-btn-secondary ui-btn-md" x-tooltip="'Coordenadas: -14.06780, -75.72860'">Pasa el cursor (tooltip)</button>
+        <button class="ui-btn ui-btn-secondary ui-btn-md" @click="show($event, 'ACT-0007')" @contextmenu="show($event, 'ACT-0007')">Clic (menú contextual)</button>
+        <template x-if="open">
+          <div class="fixed inset-0 z-50" @click="open=false" @keydown.escape.window="open=false">
+            <div class="ui-menu shadow-e2" :style="`left:${x}px;top:${y}px`" role="menu">
+              <button class="ui-menu-item" role="menuitem"><span x-html="UI.icon('eye',14)"></span> Ver detalle</button>
+              <button class="ui-menu-item" role="menuitem"><span x-html="UI.icon('edit',14)"></span> Editar actividad</button>
+              <button class="ui-menu-item" role="menuitem"><span x-html="UI.icon('camera',14)"></span> Subir evidencia</button>
+              <div class="ui-menu-sep"></div>
+              <button class="ui-menu-item is-danger" role="menuitem"><span x-html="UI.icon('trash',14)"></span> Cancelar actividad</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Toast</h2>
+      <div class="ui-card p-5 flex flex-wrap gap-2">
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="$store.toasts.push('ok','Actividad completada','ACT-0004 · IC-SUBTANJALLA-0117')">Éxito</button>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="$store.toasts.push('error','No se pudo guardar','Revisa tu conexión e inténtalo otra vez.')">Error</button>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="$store.toasts.push('warn','Cruce de horario','R. Quispe ya tiene una actividad 09:00–12:00.')">Advertencia</button>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="$store.toasts.push('info','Función no disponible en el prototipo')">Información</button>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Skeleton</h2>
+      <div class="ui-card p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-3" x-html="UI.skel.kpis(2)"></div>
+        <div x-html="UI.skel.table(3,4)"></div>
+        <p class="text-xs text-ink-3">Los skeletons replican la forma del contenido real. Nunca spinners de pantalla completa.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TABLA DE DATOS ══════════ -->
+  <section x-data="dataTable({ rows: () => demoRows(), sortKey: 'fecha', sortDir: 'desc', pageSize: 5, filters: { estado: '' } })">
+    <h2 class="text-xl font-semibold mb-1">Tabla de datos</h2>
+    <p class="text-sm text-ink-2 mb-4">Orden por columna, búsqueda, filtro, selección múltiple, paginación, primera columna fija, celda de progreso, acciones al hover.</p>
+
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" x-html="UI.icon('search',14)"></span>
+        <input type="search" class="ui-input pl-8" style="width:220px" placeholder="Buscar…" x-model="q" aria-label="Buscar en la tabla">
+      </div>
+      <select class="ui-select" style="width:170px" x-model="filters.estado" aria-label="Filtrar por estado">
+        <option value="">Todos los estados</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="en_ejecucion">En ejecución</option>
+        <option value="completada">Completada</option>
+        <option value="retrasada">Retrasada</option>
+        <option value="cancelada">Cancelada</option>
+      </select>
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="resetFilters()">Limpiar</button>
+      <span class="text-xs text-ink-3 ml-auto" x-show="selected.length" x-text="`${selected.length} seleccionadas`"></span>
+    </div>
+
+    <div class="ui-table-wrap" style="max-height:320px; overflow-y:auto">
+      <table class="ui-table" role="grid" aria-label="Actividades de muestra">
+        <thead>
+          <tr>
+            <th class="col-sticky" style="width:36px"><input type="checkbox" class="ui-check" :checked="allPageSel" @change="toggleAll()" aria-label="Seleccionar página"></th>
+            <th class="sortable" @click="sortBy('id')" aria-sort="none">ID <span x-text="sortIcon('id')"></span></th>
+            <th class="sortable" @click="sortBy('sitio')">Sitio <span x-text="sortIcon('sitio')"></span></th>
+            <th>Actividad</th>
+            <th>Técnico</th>
+            <th class="sortable" @click="sortBy('fecha')">Fecha <span x-text="sortIcon('fecha')"></span></th>
+            <th>Estado</th>
+            <th class="sortable" @click="sortBy('avance')">Avance <span x-text="sortIcon('avance')"></span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="r in paged" :key="r.id">
+            <tr :class="isSel(r.id) && 'is-selected'">
+              <td class="col-sticky"><input type="checkbox" class="ui-check" :checked="isSel(r.id)" @change="toggleSel(r.id)" :aria-label="`Seleccionar ${r.id}`"></td>
+              <td class="mono text-xs" x-text="r.id"></td>
+              <td class="mono text-xs" x-text="r.sitio"></td>
+              <td x-text="r.tipo"></td>
+              <td x-text="r.tecnico"></td>
+              <td class="mono text-xs" x-text="UI.fmt.fecha(r.fecha)"></td>
+              <td x-html="UI.badge(r.estado)"></td>
+              <td x-html="UI.progress(r.avance, {estado: r.estado==='retrasada' ? 'critico' : ''})"></td>
+              <td class="row-actions whitespace-nowrap text-right">
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" x-tooltip="'Ver detalle'" x-html="UI.icon('eye',14)" aria-label="Ver detalle"></button>
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" x-tooltip="'Editar'" x-html="UI.icon('edit',14)" aria-label="Editar"></button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!filtered.length"><td colspan="9" x-html="UI.emptyState({icon:'search', title:'Sin resultados', desc:'Ningún registro coincide con los filtros aplicados.'})"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between mt-2 text-xs text-ink-2">
+      <span class="mono" x-text="rangeLabel"></span>
+      <div class="flex gap-1">
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" x-html="UI.icon('chevronLeft',14)" aria-label="Página anterior"></button>
+        <span class="mono self-center px-1" x-text="`${page} / ${totalPages}`"></span>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" x-html="UI.icon('chevronRight',14)" aria-label="Página siguiente"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ FORMULARIOS ══════════ -->
+  <section class="grid md:grid-cols-2 gap-6">
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Campo con validación en vivo</h2>
+      <div class="ui-card p-5 space-y-4">
+        <div x-data="field({ rules: [{req:true},{min:8,msg:'El código debe tener al menos 8 caracteres'}] })">
+          <label class="ui-label" for="ds-cod">Código de sitio *</label>
+          <input id="ds-cod" class="ui-input mono" :class="invalid ? 'is-invalid' : valid ? 'is-valid' : ''"
+            placeholder="IC-PISCO-0342" x-model="value" @blur="touched=true" @input="touched=true"
+            :aria-invalid="invalid" aria-describedby="ds-cod-err">
+          <p class="ui-error" id="ds-cod-err" x-show="invalid" x-cloak><span x-html="UI.icon('alertCircle',12)"></span><span x-text="error"></span></p>
+          <p class="ui-help" x-show="!invalid">Formato operador: REGIÓN-DISTRITO-NNNN</p>
+        </div>
+        <div>
+          <label class="ui-label" for="ds-sel">Tipo de actividad</label>
+          <select id="ds-sel" class="ui-select"><option>Mantenimiento preventivo</option><option>Comisionamiento 5G</option><option>Drive test</option></select>
+        </div>
+        <div>
+          <label class="ui-label" for="ds-obs">Observaciones</label>
+          <textarea id="ds-obs" class="ui-textarea" placeholder="Escribe lo encontrado en campo…"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="ui-label" for="ds-f">Fecha</label><input id="ds-f" type="date" class="ui-input" value="2026-08-08"></div>
+          <div><label class="ui-label" for="ds-h">Hora inicio</label><input id="ds-h" type="time" class="ui-input" value="08:15"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Selector de rango de fechas</h2>
+      <div class="ui-card p-5" x-data="dateRange('2026-08-08')">
+        <div class="relative inline-block">
+          <button class="ui-btn ui-btn-secondary ui-btn-md" @click="open=!open" :aria-expanded="open">
+            <span x-html="UI.icon('calendar',14)"></span><span x-text="label"></span><span x-html="UI.icon('chevronDown',13)"></span>
+          </button>
+          <div class="ui-menu shadow-e2 mt-1" x-show="open" x-cloak @click.outside="open=false"
+            x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start" style="left:0;top:100%">
+            <template x-for="p in presets" :key="p.id">
+              <button class="ui-menu-item" :class="preset===p.id && 'font-semibold'" @click="aplicar(p.id)">
+                <span class="w-4" x-html="preset===p.id ? UI.icon('check',14) : ''"></span><span x-text="p.label"></span>
+              </button>
+            </template>
+            <div x-show="preset==='custom'" class="p-2 border-t border-line space-y-2">
+              <input type="date" class="ui-input" x-model="desde" aria-label="Desde">
+              <input type="date" class="ui-input" x-model="hasta" aria-label="Hasta">
+              <button class="ui-btn ui-btn-primary ui-btn-sm w-full" @click="open=false">Aplicar</button>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-ink-3 mt-3">Rango activo: <span class="mono" x-text="`${desde} → ${hasta}`"></span></p>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Tabs</h2>
+      <div class="ui-card p-5" x-data="{tab:'resumen'}">
+        <div class="ui-tabs" role="tablist">
+          <template x-for="t in ['resumen','bts','actividades','historial']" :key="t">
+            <button class="ui-tab" :class="tab===t && 'is-active'" role="tab" :aria-selected="tab===t" @click="tab=t" x-text="t.charAt(0).toUpperCase()+t.slice(1)"></button>
+          </template>
+        </div>
+        <div class="pt-4 text-sm text-ink-2" role="tabpanel">
+          <p x-show="tab==='resumen'">Contenido de la pestaña Resumen.</p>
+          <p x-show="tab==='bts'" x-cloak>Listado de estaciones base del proyecto.</p>
+          <p x-show="tab==='actividades'" x-cloak>Actividades asignadas y su avance.</p>
+          <p x-show="tab==='historial'" x-cloak>Línea de tiempo de cambios.</p>
+        </div>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-8 mb-4">Modal y panel lateral</h2>
+      <div class="ui-card p-5 flex gap-3" x-data="{ modal:false, drawer:false }">
+        <button class="ui-btn ui-btn-primary ui-btn-md" @click="modal=true">Abrir modal</button>
+        <button class="ui-btn ui-btn-secondary ui-btn-md" @click="drawer=true">Abrir panel lateral</button>
+
+        <template x-if="modal">
+          <div @keydown.escape.window="modal=false">
+            <div class="ui-backdrop" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start" @click="modal=false"></div>
+            <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="ds-modal-t">
+              <div class="ui-modal-box" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start">
+                <div class="ui-modal-head">
+                  <h3 class="font-semibold" id="ds-modal-t">Confirmar cierre de actividad</h3>
+                  <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="modal=false" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+                </div>
+                <div class="ui-modal-body text-sm text-ink-2">
+                  Vas a marcar <span class="mono text-ink-1">ACT-0007</span> como completada. El avance del sitio y del proyecto se recalculará.
+                </div>
+                <div class="ui-modal-foot">
+                  <button class="ui-btn ui-btn-secondary ui-btn-md" @click="modal=false">Cancelar</button>
+                  <button class="ui-btn ui-btn-primary ui-btn-md" @click="modal=false; $store.toasts.push('ok','Actividad completada')">Confirmar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="drawer">
+          <div @keydown.escape.window="drawer=false">
+            <div class="ui-backdrop" x-transition:enter="fade-enter" x-transition:enter-start="fade-enter-start" @click="drawer=false"></div>
+            <aside class="ui-drawer" x-transition:enter="slide-enter" x-transition:enter-start="slide-enter-start"
+              x-transition:leave="slide-leave" x-transition:leave-end="slide-leave-end" role="dialog" aria-modal="true" aria-label="Detalle rápido">
+              <div class="ui-drawer-head">
+                <div><p class="font-semibold">IC-PISCO-0342</p><p class="text-xs text-ink-3">Estación base · Pisco Playa</p></div>
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="drawer=false" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
+              </div>
+              <div class="ui-drawer-body space-y-3 text-sm">
+                <div class="flex justify-between"><span class="text-ink-2">Estado</span><span x-html="UI.badge('operativo')"></span></div>
+                <div class="flex justify-between"><span class="text-ink-2">Coordenadas</span><span class="mono text-xs">-13.71030, -76.20320</span></div>
+                <div class="flex justify-between"><span class="text-ink-2">Avance</span><div class="w-32" x-html="UI.progress(74)"></div></div>
+              </div>
+              <div class="ui-drawer-foot">
+                <button class="ui-btn ui-btn-secondary ui-btn-md" @click="drawer=false">Cerrar</button>
+                <button class="ui-btn ui-btn-primary ui-btn-md">Ver ficha completa</button>
+              </div>
+            </aside>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ ESTADOS DE PANTALLA ══════════ -->
+  <section>
+    <h2 class="text-xl font-semibold mb-4">Estados vacío y error</h2>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="ui-card" x-html="UI.emptyState({icon:'camera', title:'Aún no hay evidencias', desc:'Cuando la cuadrilla suba fotos desde campo aparecerán aquí.', action: UI.btn({label:'Subir evidencia', icon:'upload', size:'md'})})"></div>
+      <div class="ui-card" x-html="UI.errorState({desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).'})"></div>
+    </div>
+  </section>
+</main>
+
+<!-- Contenedor de toasts -->
+<div class="ui-toasts" aria-live="polite">
+  <template x-for="t in $store.toasts.list" :key="t.id">
+    <div class="ui-toast pop-enter" x-transition:enter="pop-enter" x-transition:enter-start="pop-enter-start" role="status">
+      <span class="t-bar" :style="`background:var(--st-${({ok:'completado',error:'critico',warn:'pendiente',info:'ejecucion'})[t.tipo]})`"></span>
+      <span :style="`color:var(--st-${({ok:'completado',error:'critico',warn:'pendiente',info:'ejecucion'})[t.tipo]})`"
+        x-html="UI.icon(({ok:'checkCircle',error:'alertCircle',warn:'alert',info:'info'})[t.tipo], 16)"></span>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold text-sm" x-text="t.titulo"></p>
+        <p class="text-xs text-ink-2" x-show="t.detalle" x-text="t.detalle"></p>
+      </div>
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="$store.toasts.close(t.id)" aria-label="Cerrar aviso" x-html="UI.icon('x',13)"></button>
+    </div>
+  </template>
+</div>
+
+</body>
+</html>
