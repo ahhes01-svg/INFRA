@@ -1,147 +1,76 @@
-# NettOps Perú — Gestión de operaciones BTS
+# INFRA · NettOps
 
-Sistema de gestión de proyectos de telecomunicaciones (instalación y
-mantenimiento de estaciones base) para una empresa de operaciones técnicas de
-campo en Perú. Contexto real: sitios con coordenadas GPS de Ica, Pisco,
-Chincha y Nazca, nomenclatura de operador (`IC-PISCO-0342`), técnicos con
-nombres peruanos y observaciones escritas como en campo.
+Aplicación web para la gestión de operaciones de infraestructura de
+telecomunicaciones. Esta rama contiene la migración progresiva a Vue 3 + Vite,
+con Supabase como servicio de autenticación y datos.
 
-Funciona en dos modos:
+## Alcance actual
 
-- **Modo demo** — sin servidor, datos en memoria. Ideal para enseñarlo sin
-  conexión. Se activa solo si no hay backend configurado, o poniendo
-  `forzarDemo: true` en `js/config.js`.
-- **Modo conectado** — Supabase (Postgres + autenticación + almacenamiento de
-  fotos). Cuentas reales, roles con permisos aplicados en el servidor,
-  evidencia fotográfica con GPS y hora.
+- Inicio de sesión exclusivo para `zahir@bitel.com.pe`.
+- Verificación adicional del rol `admin` en `public.perfiles`.
+- Layout adaptable para escritorio y teléfono.
+- Dashboard conectado directamente a Supabase.
+- Consultas limitadas a los datos necesarios para la pantalla.
+- Sin modo demo, selección simulada de roles ni datos embebidos.
+- Dependencias locales y compiladas; no se utilizan CDN en producción.
 
-## Cómo ejecutarlo
+Los archivos HTML y JavaScript de la versión anterior se conservan
+temporalmente como referencia de migración, pero Vite no los incluye en el
+directorio `dist` ni en la publicación nueva.
 
-No hay compilación. Puedes usar el servidor Node incluido:
+## Requisitos
+
+- Node.js 20.19 o superior.
+- pnpm 11.
+- Proyecto Supabase con el esquema incluido en `supabase/`.
+
+## Configuración
+
+Copiar `.env.example` como `.env.local` y completar:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-anon-key
+VITE_ALLOWED_EMAIL=zahir@bitel.com.pe
+```
+
+La llave del navegador debe ser la llave publicable/anon. Nunca se debe usar
+la llave `service_role` en variables que comiencen por `VITE_`.
+
+## Desarrollo
 
 ```bash
-npm run check
-npm run serve
-# → http://127.0.0.1:8000
+pnpm install
+pnpm dev
 ```
 
-O servir los mismos archivos con Python:
+## Validación y compilación
 
 ```bash
-python3 -m http.server 8000
-# → http://localhost:8000
+pnpm check
 ```
 
-En modo demo, cualquier usuario y una contraseña de 6+ caracteres sirven, y el
-rol se elige en el formulario. En modo conectado se entra con la cuenta real y
-el rol lo determina el perfil del usuario.
+El resultado se genera en `dist/`.
 
-## Puesta en marcha del backend
+## Limpieza de demostración
 
-Los scripts están en `supabase/`, en orden. Se ejecutan en
-**Supabase → SQL Editor → New query → pegar → Run**:
+La limpieza de Supabase está separada en dos pasos:
 
-| Archivo | Qué hace | Cuándo |
-|---|---|---|
-| `01-schema.sql` | Tablas, índices, RLS, funciones de negocio | Una vez |
-| `02-seed.sql` | Datos demo peruanos | Una vez (opcional) |
-| `03-storage.sql` | Bucket `evidencias` y sus políticas | Una vez |
-| `04-usuarios.sql` | Asigna rol y técnico a cada cuenta | Tras crear usuarios |
-| `05-gestion.sql` | Gestión segura de cuentas, técnicos, sitios y materiales | Después de `01-schema.sql` |
+1. `supabase/06-limpieza-produccion-preview.sql`: muestra qué cuentas y cuántas
+   filas existen; no modifica datos.
+2. `supabase/07-limpieza-produccion.sql`: elimina definitivamente datos de
+   demostración y conserva únicamente `zahir@bitel.com.pe` como administrador.
 
-Los cinco son **idempotentes**: pueden re-ejecutarse sin duplicar datos. En una
-instalación nueva ejecuta `01`, `05`, `02` (opcional) y `03`; después crea las
-cuentas en Auth y termina con `04`. Consulta [DEPLOYMENT.md](DEPLOYMENT.md)
-antes de publicar.
+El segundo script es destructivo y requiere revisión y confirmación antes de
+ejecutarse en Supabase.
 
-Luego, en `js/config.js`, pon la URL del proyecto y la llave `anon`. Esa llave
-está diseñada para vivir en el navegador; el acceso real lo gobiernan las
-políticas RLS. **Nunca pongas ahí la llave `service_role`.**
+## Despliegue
 
-### Dónde vive cada regla
+Vercel debe usar:
 
-Las reglas críticas están en Postgres, no en el navegador, para que no puedan
-saltarse manipulando el JavaScript:
+- Framework: Vite
+- Build command: `pnpm build`
+- Output directory: `dist`
 
-- Cerrar una actividad exige checklist completo y fotos de antes/después.
-- Solo un supervisor o administrador aprueba o rechaza un cierre.
-- Un técnico solo ve y toca las actividades de su cuadrilla.
-- Una cuenta técnica sin vincular no puede consultar datos operativos.
-- Un despacho de material no puede dejar el stock en negativo.
-- No se puede programar a un técnico con el horario cruzado.
-- Las fotografías viven en un bucket privado y usan enlaces temporales.
-
-## Stack
-
-- **HTML + Tailwind CSS (CDN) + Alpine.js (CDN)** — sin compilación
-- **Supabase** (Postgres, Auth, Storage) — backend sin servidor propio
-- **Chart.js** (gráficos), **FullCalendar** (agenda), **Leaflet** (mapas)
-
-## Estructura
-
-```
-index.html                  login (real o simulado según configuración)
-pages/design-system.html    catálogo completo de componentes
-pages/*.html                un archivo por módulo (19 pantallas)
-js/tokens.js                tokens de diseño + configuración de Tailwind
-js/components.js            componentes reutilizables (CSS + helpers + Alpine)
-js/data.js                  estructura de datos, cálculos y modo demo
-js/config.js                URL y llave del backend
-js/api.js                   cliente Supabase: sesión, carga y mutaciones
-js/layout.js                sidebar, navbar, roles, tema, toasts, arranque
-supabase/*.sql              esquema, datos, almacenamiento y usuarios
-DEPLOYMENT.md               procedimiento mínimo de publicación y reversión
-scripts/*.mjs               servidor local y validación previa al despliegue
-```
-
-Orden de construcción respetado: tokens → componentes → design system →
-datos → módulos. Ningún módulo define estilos propios. `js/api.js` conserva la
-misma superficie que la capa en memoria (`DB`, `CALC`, `ACCIONES`), por eso
-conectar el backend no obligó a reescribir ningún módulo.
-
-## Qué probar
-
-- **Búsqueda global**: `Ctrl+K` (o el botón "Buscar…" del navbar) desde
-  cualquier pantalla — salta a sitios, actividades, técnicos, proyectos,
-  incidencias y materiales con navegación por teclado.
-- **Kanban de actividades** (Actividades → Kanban): arrastra tarjetas por el
-  flujo Pendiente → En ejecución → En revisión → Completada; los movimientos
-  ilegales se rechazan con aviso.
-- **Cierre validado + aprobación**: no se puede Finalizar sin checklist
-  completo y fotos de antes/después; el cierre queda "En revisión" y el
-  supervisor lo aprueba o lo rechaza con motivo (Supervisión → "Cierres por
-  aprobar"; prueba rechazar ACT-0012, que llegó sin fotos).
-- **Timeline de cuadrillas** (Agenda → Cuadrillas): filas por técnico, de
-  06:00 a 20:00; los bloques con borde rojo punteado se cruzan (Marco y
-  Milagros lo demuestran el sábado 08).
-- **Mapa completo** (BTS/Sitios → Mapa completo): clúster de 60 sitios,
-  filtros por estado/proyecto y ruta del día de un técnico numerada.
-- **Kardex conectado** (Materiales → clic derecho en una fila): despachar
-  descuenta stock, alimenta el kardex y aparece en la ficha del sitio.
-
-- **Reactividad en memoria**: completa una actividad desde el Dashboard o el
-  drawer de Actividades — sube el avance del BTS y del proyecto, las cifras
-  del dashboard cuentan al nuevo valor, los gráficos se redibujan y el
-  historial y la campana registran el evento.
-- **Checklist en vivo** (Actividades → abrir `ACT-0013` o `ACT-0014`): cada
-  ítem marcado anima la barra de porcentaje.
-- **Cruce de horarios** (Agenda): arrastra `ACT-0018` (14:30) sobre la mañana
-  del sábado — se rechaza con sacudida y toast porque la cuadrilla ya está en
-  `ACT-0014`. El formulario "Programar" avisa del cruce en vivo.
-- **Rol Técnico → Mi jornada**: vista móvil con botones grandes; Iniciar →
-  Registrar avance → Subir evidencia (dos toques) → Registrar incidencia →
-  Finalizar.
-- **Estados de pantalla**: el conmutador Datos / Carga / Vacío / Error del
-  navbar muestra los cuatro estados de cada módulo (skeletons con la forma
-  del contenido, vacíos accionables, errores con reintento).
-- **Modo oscuro**: pensado para uso nocturno en campo, sin negros puros.
-- **Casos de borde**: proyecto con 47 BTS (PRY-2026-009, con paginación),
-  nombre de sitio kilométrico, técnicos sin foto, incidencia crítica vencida
-  hace 6 días (INC-2026-038), actividad completada sin evidencias, material
-  sin stock que bloquea un correctivo.
-
-## Fuera de alcance (a propósito)
-
-Exportación real a PDF/Excel y trabajo offline con cola de sincronización. La
-aplicación no afirma guardar cambios sin red: hay que recuperar la conexión
-antes de registrar una operación.
+También deben configurarse en Vercel las tres variables `VITE_*` descritas
+arriba. `vercel.json` contiene la redirección necesaria para Vue Router.

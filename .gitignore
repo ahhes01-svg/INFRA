@@ -5,10 +5,11 @@
 .vscode/
 .idea/
 
-# Dependencias y salidas futuras
+# Dependencias y salidas
 node_modules/
 dist/
 coverage/
+*.log
 
 # Sistema operativo
 .DS_Store
