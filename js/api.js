@@ -148,17 +148,31 @@ window.API = (function () {
   }
 
   /* ── Autenticación ─────────────────────────────────────────────────────── */
+  // Los errores de Supabase llegan en inglés; los traducimos y, cuando el
+  // problema es de configuración del proyecto, decimos dónde se arregla.
+  function traducirError(error) {
+    const codigo = error.code || error.error_code || '';
+    const msg = error.message || '';
+    if (codigo === 'email_provider_disabled' || /Email logins are disabled/i.test(msg)) {
+      return 'El acceso por correo está desactivado en el servidor. ' +
+             'Actívalo en Supabase → Authentication → Sign In / Providers → Email → "Enable Email provider".';
+    }
+    if (codigo === 'invalid_credentials' || /Invalid login/i.test(msg)) return 'Usuario o contraseña incorrectos';
+    if (codigo === 'email_not_confirmed' || /Email not confirmed/i.test(msg)) {
+      return 'La cuenta aún no está confirmada. Pide al administrador que la active.';
+    }
+    if (codigo === 'over_request_rate_limit' || /rate limit/i.test(msg)) {
+      return 'Demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.';
+    }
+    if (codigo === 'user_banned') return 'Esta cuenta está suspendida.';
+    if (/Failed to fetch|NetworkError/i.test(msg)) return 'Sin conexión con el servidor. Revisa tu red.';
+    return msg || 'No se pudo iniciar sesión';
+  }
+
   async function entrar(email, password) {
     if (modoDemo) return { ok: true, demo: true };
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      const msg = /Invalid login/i.test(error.message)
-        ? 'Usuario o contraseña incorrectos'
-        : /Email not confirmed/i.test(error.message)
-          ? 'La cuenta aún no está confirmada. Pide al administrador que la active.'
-          : error.message;
-      return { ok: false, error: msg };
-    }
+    if (error) return { ok: false, error: traducirError(error) };
     await cargarPerfil();
     return { ok: true };
   }
