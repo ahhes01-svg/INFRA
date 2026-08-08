@@ -1,50 +1,87 @@
-# NettOps Perú — Prototipo de gestión de operaciones BTS
+# NettOps Perú — Gestión de operaciones BTS
 
-Prototipo de alta fidelidad de un sistema de gestión de proyectos de
-telecomunicaciones (instalación y mantenimiento de estaciones base) para una
-empresa de operaciones técnicas de campo en Perú. Todo el contexto es real:
-sitios con coordenadas GPS de Ica, Pisco, Chincha y Nazca, nomenclatura de
-operador (`IC-PISCO-0342`), técnicos con nombres peruanos y observaciones
-escritas como en campo.
+Sistema de gestión de proyectos de telecomunicaciones (instalación y
+mantenimiento de estaciones base) para una empresa de operaciones técnicas de
+campo en Perú. Contexto real: sitios con coordenadas GPS de Ica, Pisco,
+Chincha y Nazca, nomenclatura de operador (`IC-PISCO-0342`), técnicos con
+nombres peruanos y observaciones escritas como en campo.
+
+Funciona en dos modos:
+
+- **Modo demo** — sin servidor, datos en memoria. Ideal para enseñarlo sin
+  conexión. Se activa solo si no hay backend configurado, o poniendo
+  `forzarDemo: true` en `js/config.js`.
+- **Modo conectado** — Supabase (Postgres + autenticación + almacenamiento de
+  fotos). Cuentas reales, roles con permisos aplicados en el servidor,
+  evidencia fotográfica con GPS y hora.
 
 ## Cómo ejecutarlo
 
-No hay build, npm ni backend. Solo archivos estáticos:
+No hay build ni npm. Solo archivos estáticos:
 
 ```bash
-# opción 1: abrir index.html directamente en el navegador
-# opción 2 (recomendada, para que el mapa y las fuentes carguen sin fricción):
 python3 -m http.server 8000
 # → http://localhost:8000
 ```
 
-El login es simulado: cualquier usuario y una contraseña de 4+ caracteres.
-Elige el rol al ingresar (Administrador / Supervisor / Técnico) — también se
-puede cambiar en cualquier momento desde el navbar.
+En modo demo, cualquier usuario y una contraseña de 6+ caracteres sirven, y el
+rol se elige en el formulario. En modo conectado se entra con la cuenta real y
+el rol lo determina el perfil del usuario.
+
+## Puesta en marcha del backend
+
+Los scripts están en `supabase/`, en orden. Se ejecutan en
+**Supabase → SQL Editor → New query → pegar → Run**:
+
+| Archivo | Qué hace | Cuándo |
+|---|---|---|
+| `01-schema.sql` | Tablas, índices, RLS, funciones de negocio | Una vez |
+| `02-seed.sql` | Datos demo peruanos | Una vez (opcional) |
+| `03-storage.sql` | Bucket `evidencias` y sus políticas | Una vez |
+| `04-usuarios.sql` | Asigna rol y técnico a cada cuenta | Tras crear usuarios |
+
+Los cuatro son **idempotentes**: pueden re-ejecutarse sin duplicar datos.
+
+Luego, en `js/config.js`, pon la URL del proyecto y la llave `anon`. Esa llave
+está diseñada para vivir en el navegador; el acceso real lo gobiernan las
+políticas RLS. **Nunca pongas ahí la llave `service_role`.**
+
+### Dónde vive cada regla
+
+Las reglas críticas están en Postgres, no en el navegador, para que no puedan
+saltarse manipulando el JavaScript:
+
+- Cerrar una actividad exige checklist completo y fotos de antes/después.
+- Solo un supervisor o administrador aprueba o rechaza un cierre.
+- Un técnico solo ve y toca las actividades de su cuadrilla.
+- Un despacho de material no puede dejar el stock en negativo.
+- No se puede programar a un técnico con el horario cruzado.
 
 ## Stack
 
 - **HTML + Tailwind CSS (CDN) + Alpine.js (CDN)** — sin compilación
-- **Chart.js** (gráficos del dashboard y reportes)
-- **FullCalendar** (agenda con arrastre para reprogramar)
-- **Leaflet + OpenStreetMap** (mapas de sitios)
-- Todos los datos viven en memoria en `js/data.js`. Sin base de datos, sin
-  fetch, sin localStorage, sin autenticación real.
+- **Supabase** (Postgres, Auth, Storage) — backend sin servidor propio
+- **Chart.js** (gráficos), **FullCalendar** (agenda), **Leaflet** (mapas)
 
 ## Estructura
 
 ```
-index.html                  login simulado
+index.html                  login (real o simulado según configuración)
 pages/design-system.html    catálogo completo de componentes
 pages/*.html                un archivo por módulo (19 pantallas)
 js/tokens.js                tokens de diseño + configuración de Tailwind
 js/components.js            componentes reutilizables (CSS + helpers + Alpine)
-js/data.js                  datos demo + cálculos derivados + mutaciones
-js/layout.js                sidebar, navbar, roles, tema, toasts
+js/data.js                  estructura de datos, cálculos y modo demo
+js/config.js                URL y llave del backend
+js/api.js                   cliente Supabase: sesión, carga y mutaciones
+js/layout.js                sidebar, navbar, roles, tema, toasts, arranque
+supabase/*.sql              esquema, datos, almacenamiento y usuarios
 ```
 
 Orden de construcción respetado: tokens → componentes → design system →
-datos → módulos. Ningún módulo define estilos propios.
+datos → módulos. Ningún módulo define estilos propios. `js/api.js` conserva la
+misma superficie que la capa en memoria (`DB`, `CALC`, `ACCIONES`), por eso
+conectar el backend no obligó a reescribir ningún módulo.
 
 ## Qué probar
 

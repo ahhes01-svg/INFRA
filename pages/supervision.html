@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-page="supervision" data-title="Supervisión en tiempo real" class="bg-surface-0">
 
@@ -99,14 +101,14 @@
                   <span class="flex gap-2">
                     <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="rej=true">Rechazar</button>
                     <button class="ui-btn ui-btn-primary ui-btn-sm"
-                      @click="ACCIONES.aprobarActividad(a.id, $store.db.sesion.usuario); $store.toasts.push('ok','Cierre aprobado', a.id)">Aprobar</button>
+                      @click="await ACCIONES.aprobarActividad(a.id, $store.db.sesion.usuario); $store.toasts.push('ok','Cierre aprobado', a.id)">Aprobar</button>
                   </span>
                 </template>
                 <template x-if="rej">
                   <span class="flex gap-2">
                     <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="rej=false">Cancelar</button>
                     <button class="ui-btn ui-btn-danger ui-btn-sm"
-                      @click="if(motivo.trim().length<5){$store.toasts.push('error','Indica el motivo del rechazo');}else{ACCIONES.rechazarActividad(a.id, motivo.trim(), $store.db.sesion.usuario); $store.toasts.push('warn','Cierre rechazado', a.id + ' vuelve a la cuadrilla');}">Confirmar</button>
+                      @click="if(motivo.trim().length<5){$store.toasts.push('error','Indica el motivo del rechazo');}else{await ACCIONES.rechazarActividad(a.id, motivo.trim(), $store.db.sesion.usuario); $store.toasts.push('warn','Cierre rechazado', a.id + ' vuelve a la cuadrilla');}">Confirmar</button>
                   </span>
                 </template>
               </div>

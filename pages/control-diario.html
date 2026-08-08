@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function controlPage() {
   return {
@@ -36,15 +38,15 @@ function controlPage() {
         cumplimiento: f.length ? Math.round(f.filter(a => a.estado === 'completada').length / f.length * 100) : 0,
       };
     },
-    cambiarEstado(a, nuevo) {
+    async cambiarEstado(a, nuevo) {
       const u = Alpine.store('db').sesion.usuario;
-      if (nuevo === 'en_ejecucion' && a.estado !== 'en_ejecucion') ACCIONES.iniciarActividad(a.id, u);
+      if (nuevo === 'en_ejecucion' && a.estado !== 'en_ejecucion') await ACCIONES.iniciarActividad(a.id, u);
       else if (nuevo === 'en_revision' && a.estado !== 'en_revision') {
-        const r = ACCIONES.finalizarActividad(a.id, u);
-        if (!r.ok) { Alpine.store('toasts').push('error', 'No se puede enviar a revisión', 'Falta: ' + r.faltantes.join(' · ')); return; }
+        const r = await ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) { Alpine.store('toasts').push('error', 'No se puede enviar a revisión', 'Falta: ' + (r.faltantes || []).join(' · ')); return; }
       }
       // "Completada" directa es el atajo del administrador (salta la revisión)
-      else if (nuevo === 'completada' && a.estado !== 'completada') ACCIONES.completarActividad(a.id, u);
+      else if (nuevo === 'completada' && a.estado !== 'completada') await ACCIONES.completarActividad(a.id, u);
       else { a.estado = nuevo; window.dispatchEvent(new CustomEvent('app:data')); }
       Alpine.store('toasts').push('info', 'Estado actualizado', `${a.id} → ${UI.estadoInfo(nuevo).label}`);
     },

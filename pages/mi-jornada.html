@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 // Vista de técnico diseñada para el celular en campo:
 // objetivos táctiles de 44px+, acciones primarias en el tercio inferior,
@@ -30,14 +32,14 @@ function jornadaPage() {
     get actual() { return this.misActs.find(a => a.estado === 'en_ejecucion') || null; },
     get a() { return this.actSel ? CALC.actividad(this.actSel) : null; },
 
-    iniciar(a) {
-      ACCIONES.iniciarActividad(a.id, this.yo.nombre);
+    async iniciar(a) {
+      await ACCIONES.iniciarActividad(a.id, this.yo.nombre);
       Alpine.store('toasts').push('info', 'Jornada iniciada', `${CALC.sitio(a.sitioId).codigo} · hora registrada.`);
     },
-    finalizar(a) {
-      const r = ACCIONES.finalizarActividad(a.id, this.yo.nombre);
+    async finalizar(a) {
+      const r = await ACCIONES.finalizarActividad(a.id, this.yo.nombre);
       if (!r.ok) {
-        Alpine.store('toasts').push('error', 'Aún no puedes cerrar', 'Falta: ' + r.faltantes.join(' · '));
+        Alpine.store('toasts').push('error', 'Aún no puedes cerrar', 'Falta: ' + (r.faltantes || []).join(' · '));
         // Lleva al técnico directo a lo que falta
         if (r.faltantes.some(f => f.includes('checklist'))) this.abrirAvance(a);
         else this.abrirEvidencia(a);
@@ -51,19 +53,33 @@ function jornadaPage() {
     abrirIncidencia(a) { this.actSel = a.id; this.hoja = 'incidencia'; this.inc = { titulo: '', severidad: 'media' }; this.incTocado = false; },
     marcar(idx) { ACCIONES.toggleChecklist(this.actSel, idx, this.yo.nombre); },
     // Dos toques: 1) botón "Subir evidencia" en la tarjeta → 2) confirmar tipo
-    confirmarEvidencia(tipo, titulo) {
-      ACCIONES.subirEvidencia(this.actSel, tipo, titulo, this.yo.nombre, this.yo.id);
+    // Con backend real abre la cámara del teléfono; sin él, registra la evidencia simulada
+    async confirmarEvidencia(tipo, titulo, file = null) {
+      const id = await ACCIONES.subirEvidencia(this.actSel, tipo, titulo, this.yo.nombre, this.yo.id, file);
       this.hoja = null;
-      Alpine.store('toasts').push('ok', 'Evidencia subida', 'Quedó en revisión del supervisor.');
+      if (id) Alpine.store('toasts').push('ok', 'Evidencia subida', 'Quedó en revisión del supervisor.');
     },
-    reportarIncidencia() {
+    // Segundo toque: el técnico elige tipo y se abre la cámara
+    tomarFoto(tipo, titulo) {
+      if (API.estaEnDemo()) return this.confirmarEvidencia(tipo, titulo);
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+      inp.onchange = () => {
+        if (!inp.files || !inp.files[0]) return;
+        Alpine.store('toasts').push('info', 'Subiendo foto…', 'Se comprime antes de enviar.');
+        this.confirmarEvidencia(tipo, titulo, inp.files[0]);
+      };
+      inp.click();
+    },
+    async reportarIncidencia() {
       this.incTocado = true;
       if (this.inc.titulo.trim().length < 8) return;
       const act = this.a;
-      ACCIONES.crearIncidencia({
+      const id = await ACCIONES.crearIncidencia({
         titulo: this.inc.titulo, descripcion: 'Reportada desde campo (Mi jornada).',
         severidad: this.inc.severidad, sitioId: act.sitioId, actividadId: act.id, fechaLimite: '2026-08-15',
       }, this.yo.nombre, this.yo.id);
+      if (!id) return;
       this.hoja = null;
       Alpine.store('toasts').push('ok', 'Incidencia reportada', 'Visible en el dashboard y la campana del supervisor.');
     },
@@ -182,9 +198,9 @@ function jornadaPage() {
           <p class="text-xs text-ink-3">Un toque más y la foto queda registrada con tu hora actual.</p>
         </div>
         <div class="p-4 grid gap-2 pb-6">
-          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_antes','Foto antes del trabajo')" x-html="UI.icon('camera',17)+' Foto — antes del trabajo'"></button>
-          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_avance','Foto de avance de obra')" x-html="UI.icon('camera',17)+' Foto — avance'"></button>
-          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="confirmarEvidencia('foto_despues','Foto después del trabajo')" x-html="UI.icon('camera',17)+' Foto — después del trabajo'"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="tomarFoto('foto_antes','Foto antes del trabajo')" x-html="UI.icon('camera',17)+' Foto — antes del trabajo'"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="tomarFoto('foto_avance','Foto de avance de obra')" x-html="UI.icon('camera',17)+' Foto — avance'"></button>
+          <button class="ui-btn ui-btn-secondary ui-btn-lg w-full justify-start" @click="tomarFoto('foto_despues','Foto después del trabajo')" x-html="UI.icon('camera',17)+' Foto — después del trabajo'"></button>
           <button class="ui-btn ui-btn-ghost ui-btn-lg w-full" @click="hoja=null">Cancelar</button>
         </div>
       </div>

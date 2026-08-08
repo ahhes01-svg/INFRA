@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function actividadesPage() {
   const abrir = new URLSearchParams(location.search).get('id');
@@ -55,31 +57,43 @@ function actividadesPage() {
     },
 
     /* ── Acciones con validación ── */
-    iniciar() { ACCIONES.iniciarActividad(this.sel, Alpine.store('db').sesion.usuario); Alpine.store('toasts').push('info', 'Actividad iniciada', this.sel); },
-    finalizar(id = this.sel) {
-      const r = ACCIONES.finalizarActividad(id, Alpine.store('db').sesion.usuario);
+    async iniciar() { await ACCIONES.iniciarActividad(this.sel, Alpine.store('db').sesion.usuario); Alpine.store('toasts').push('info', 'Actividad iniciada', this.sel); },
+    async finalizar(id = this.sel) {
+      const r = await ACCIONES.finalizarActividad(id, Alpine.store('db').sesion.usuario);
       if (!r.ok) {
-        Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + r.faltantes.join(' · '));
+        Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + (r.faltantes || []).join(' · '));
         return false;
       }
       Alpine.store('toasts').push('ok', 'Cierre enviado a revisión', `${id} espera aprobación del supervisor.`);
       return true;
     },
-    aprobar(id = this.sel) {
+    async aprobar(id = this.sel) {
       const a = CALC.actividad(id); const pid = a.proyectoId;
-      ACCIONES.aprobarActividad(id, Alpine.store('db').sesion.usuario);
+      await ACCIONES.aprobarActividad(id, Alpine.store('db').sesion.usuario);
       Alpine.store('toasts').push('ok', 'Cierre aprobado', `Avance del proyecto ${CALC.proyecto(pid).codigo}: ${CALC.avanceProyecto(pid)}%`);
     },
-    rechazar() {
+    async rechazar() {
       if (this.motivoRechazo.trim().length < 5) { Alpine.store('toasts').push('error', 'Indica el motivo del rechazo'); return; }
-      ACCIONES.rechazarActividad(this.sel, this.motivoRechazo.trim(), Alpine.store('db').sesion.usuario);
+      await ACCIONES.rechazarActividad(this.sel, this.motivoRechazo.trim(), Alpine.store('db').sesion.usuario);
       Alpine.store('toasts').push('warn', 'Cierre rechazado', 'La actividad volvió a la cuadrilla en ejecución.');
       this.rechazando = false; this.motivoRechazo = '';
     },
     marcar(idx) { ACCIONES.toggleChecklist(this.sel, idx, Alpine.store('db').sesion.usuario); },
-    subirEvidencia(tipo, titulo) {
-      ACCIONES.subirEvidencia(this.sel, tipo, titulo, Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId);
-      Alpine.store('toasts').push('ok', 'Evidencia subida', titulo);
+    // Con backend abre el selector/cámara; sin él registra la evidencia simulada
+    tomarFoto(tipo, titulo) {
+      if (API.estaEnDemo()) return this.subirEvidencia(tipo, titulo);
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+      inp.onchange = () => {
+        if (!inp.files || !inp.files[0]) return;
+        Alpine.store('toasts').push('info', 'Subiendo foto…', 'Se comprime antes de enviar.');
+        this.subirEvidencia(tipo, titulo, inp.files[0]);
+      };
+      inp.click();
+    },
+    async subirEvidencia(tipo, titulo, file = null) {
+      const id = await ACCIONES.subirEvidencia(this.sel, tipo, titulo, Alpine.store('db').sesion.usuario, Alpine.store('db').sesion.tecnicoDemoId, file);
+      if (id) Alpine.store('toasts').push('ok', 'Evidencia subida', titulo);
     },
 
     /* ── Kanban: arrastre con transiciones permitidas ── */
@@ -97,7 +111,7 @@ function actividadesPage() {
       if (colId === 'completada' && !ui.puede('aprobar')) return false;
       return true;
     },
-    soltar(colId) {
+    async soltar(colId) {
       const a = CALC.actividad(this.dragId);
       this.colSobre = null;
       if (!a || !this.puedeMover(a, colId)) {
@@ -108,12 +122,12 @@ function actividadesPage() {
       }
       const u = Alpine.store('db').sesion.usuario;
       if (colId === 'en_ejecucion' && ['pendiente', 'retrasada'].includes(a.estado)) {
-        ACCIONES.iniciarActividad(a.id, u);
+        await ACCIONES.iniciarActividad(a.id, u);
         Alpine.store('toasts').push('info', 'Actividad iniciada', a.id);
       } else if (colId === 'en_revision') {
-        this.finalizar(a.id);
+        await this.finalizar(a.id);
       } else if (colId === 'completada') {
-        this.aprobar(a.id);
+        await this.aprobar(a.id);
       } else if (colId === 'en_ejecucion' && a.estado === 'en_revision') {
         this.sel = a.id; this.rechazando = true; // rechazo requiere motivo
       }
@@ -341,8 +355,8 @@ function actividadesPage() {
             <div class="flex items-center justify-between mb-2">
               <p class="text-xs text-ink-3 uppercase font-semibold tracking-wide">Evidencias</p>
               <span class="flex gap-1.5" x-show="['en_ejecucion','retrasada'].includes(a.estado)">
-                <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="subirEvidencia('foto_antes','Foto antes del trabajo')" x-html="UI.icon('upload',12)+' Antes'"></button>
-                <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="subirEvidencia('foto_despues','Foto después del trabajo')" x-html="UI.icon('upload',12)+' Después'"></button>
+                <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="tomarFoto('foto_antes','Foto antes del trabajo')" x-html="UI.icon('camera',12)+' Antes'"></button>
+                <button class="ui-btn ui-btn-secondary ui-btn-sm" @click="tomarFoto('foto_despues','Foto después del trabajo')" x-html="UI.icon('camera',12)+' Después'"></button>
               </span>
             </div>
             <div class="grid grid-cols-3 gap-2" x-show="CALC.evidenciasDeActividad(a.id).length">
@@ -370,7 +384,7 @@ function actividadesPage() {
 
         <div class="ui-drawer-foot">
           <button class="ui-btn ui-btn-danger ui-btn-md mr-auto" x-show="['pendiente','retrasada'].includes(a.estado) && $store.ui.puede('editar')"
-            @click="ACCIONES.cancelarActividad(a.id, 'decisión del supervisor', $store.db.sesion.usuario); $store.toasts.push('warn','Actividad cancelada', a.id)">Cancelar</button>
+            @click="await ACCIONES.cancelarActividad(a.id, 'decisión del supervisor', $store.db.sesion.usuario); $store.toasts.push('warn','Actividad cancelada', a.id)">Cancelar</button>
           <button class="ui-btn ui-btn-secondary ui-btn-md" @click="sel=null; rechazando=false">Cerrar</button>
           <button class="ui-btn ui-btn-primary ui-btn-md" x-show="['pendiente','retrasada'].includes(a.estado)" @click="iniciar()" x-html="UI.icon('play',13)+' Iniciar'"></button>
           <button class="ui-btn ui-btn-primary ui-btn-md" x-show="a.estado==='en_ejecucion'" @click="finalizar()" x-html="UI.icon('check',13)+' Finalizar'"></button>

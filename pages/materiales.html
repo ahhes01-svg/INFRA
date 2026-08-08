@@ -9,9 +9,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../js/tokens.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-page="materiales" data-title="Materiales" class="bg-surface-0">
 
@@ -28,18 +30,18 @@ function materialesPage() {
     },
     abrirDespacho(id) { this.despacho = { matId: id, cantidad: 1, actividadId: this.actividadesActivas[0]?.id || '' }; this.menu = null; },
     abrirIngreso(id) { this.ingreso = { matId: id, cantidad: 1 }; this.menu = null; },
-    confirmarDespacho() {
+    async confirmarDespacho() {
       const d = this.despacho;
-      const r = ACCIONES.despacharMaterial(d.matId, d.cantidad, d.actividadId, Alpine.store('db').sesion.usuario);
+      const r = await ACCIONES.despacharMaterial(d.matId, d.cantidad, d.actividadId, Alpine.store('db').sesion.usuario);
       if (!r.ok) { Alpine.store('toasts').push('error', 'Despacho rechazado', r.error); return; }
       const m = this.mat(d.matId);
       Alpine.store('toasts').push('ok', 'Material despachado',
         `${d.cantidad} ${m.unidad} de ${m.nombre} → ${d.actividadId}. Stock restante: ${m.stock}.`);
       this.despacho = null;
     },
-    confirmarIngreso() {
+    async confirmarIngreso() {
       const i = this.ingreso;
-      ACCIONES.ingresarMaterial(i.matId, i.cantidad, Alpine.store('db').sesion.usuario);
+      await ACCIONES.ingresarMaterial(i.matId, i.cantidad, Alpine.store('db').sesion.usuario);
       Alpine.store('toasts').push('ok', 'Ingreso registrado', `Stock actual: ${this.mat(i.matId).stock} ${this.mat(i.matId).unidad}.`);
       this.ingreso = null;
     },

@@ -11,9 +11,11 @@
 <script src="../js/tokens.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="../js/components.js"></script>
+<script src="../js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script defer src="../js/layout.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
 function sitioPage() {
   const id = new URLSearchParams(location.search).get('id') || 'st-02';
@@ -35,16 +37,16 @@ function sitioPage() {
         }).addTo(this.map);
       });
     },
-    accion(a) {
+    async accion(a) {
       const u = Alpine.store('db').sesion.usuario;
-      if (['pendiente', 'retrasada'].includes(a.estado)) { ACCIONES.iniciarActividad(a.id, u); Alpine.store('toasts').push('info', 'Actividad iniciada', a.id); }
+      if (['pendiente', 'retrasada'].includes(a.estado)) { await ACCIONES.iniciarActividad(a.id, u); Alpine.store('toasts').push('info', 'Actividad iniciada', a.id); }
       else if (a.estado === 'en_ejecucion') {
-        const r = ACCIONES.finalizarActividad(a.id, u);
-        if (!r.ok) Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + r.faltantes.join(' · '));
+        const r = await ACCIONES.finalizarActividad(a.id, u);
+        if (!r.ok) Alpine.store('toasts').push('error', 'No se puede cerrar todavía', 'Falta: ' + (r.faltantes || []).join(' · '));
         else Alpine.store('toasts').push('ok', 'Cierre enviado a revisión', a.id);
       }
       else if (a.estado === 'en_revision' && Alpine.store('ui').puede('aprobar')) {
-        ACCIONES.aprobarActividad(a.id, u);
+        await ACCIONES.aprobarActividad(a.id, u);
         Alpine.store('toasts').push('ok', 'Cierre aprobado', `Avance del sitio: ${CALC.avanceSitio(this.id)}%`);
       }
     },
