@@ -1,22 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reportes · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function reportesPage() {
+/* ============================================================================
+ * reportes.js — Vista «Reportes»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     init() { this.$nextTick(() => this.montar()); },
     cumplimientoProyecto(p) {
@@ -70,11 +56,14 @@ function reportesPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="reportes" data-title="Reportes" class="bg-surface-0">
 
-<main id="page" x-data="reportesPage()">
+export default {
+  title: "Reportes",
+  roles: ["admin", "supervisor"],
+  deps: ["chart"],
+  componente: "reportesPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="reportesPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -86,7 +75,7 @@ function reportesPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'chart', title:'Sin datos para reportar', desc:'Los reportes se generan a partir de actividades registradas. Aún no hay operación en el rango elegido.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servidor de reportes no respondió (tiempo de espera agotado, 30 s).', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -143,7 +132,5 @@ function reportesPage() {
       </div>
     </section>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

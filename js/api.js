@@ -372,13 +372,23 @@ window.API = (function () {
  * Los módulos siguen llamando ACCIONES.completarActividad(...) sin cambios.
  * ==========================================================================*/
 (function reemplazarAcciones() {
-  const demoAcciones = window.ACCIONES;   // implementación en memoria original
+  // Las acciones en memoria llegan con js/demo/datos.js, que solo se descarga
+  // si no hay backend. Por eso se consultan cuando se usan, no al cargar.
+  const demoAcciones = new Proxy({}, {
+    get: (_, metodo) => (...args) => {
+      const impl = window.__ACCIONES_DEMO;
+      if (!impl || typeof impl[metodo] !== 'function') {
+        console.warn('Acción de demostración no disponible:', metodo);
+        return { ok: false, error: 'Acción no disponible' };
+      }
+      return impl[metodo](...args);
+    },
+  });
 
   function aviso(tipo, titulo, detalle) {
     if (window.Alpine && Alpine.store('toasts')) Alpine.store('toasts').push(tipo, titulo, detalle);
   }
 
-  // En modo demo delegamos en la implementación original de data.js
   const enDemo = () => window.API.estaEnDemo();
 
   window.ACCIONES = {

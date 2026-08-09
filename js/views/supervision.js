@@ -1,23 +1,16 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Supervisión · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-</head>
-<body data-page="supervision" data-title="Supervisión en tiempo real" class="bg-surface-0">
+/* ============================================================================
+ * supervision.js — Vista «Supervisión en tiempo real»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 
-<main id="page" x-data="{}">
+
+export default {
+  title: "Supervisión en tiempo real",
+  roles: ["supervisor"],
+  deps: [],
+  componente: null,
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="{}">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid lg:grid-cols-3 gap-4">
@@ -29,7 +22,7 @@
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'shield', title:'Sin operación en curso', desc:'Cuando una cuadrilla inicie una actividad aparecerá aquí con su avance en tiempo real.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'Se perdió la conexión con el canal de eventos en tiempo real.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'Se perdió la conexión con el canal de eventos en tiempo real.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -122,12 +115,12 @@
         <h2 class="text-lg font-semibold pt-2">Atención requerida</h2>
         <template x-for="i in $store.db.incidencias.filter(i=>['abierta','en_atencion'].includes(i.estado))" :key="i.id">
           <article class="ui-card p-3.5 flex items-center gap-3" :style="CALC.incidenciaVencida(i) ? 'border-color:var(--st-critico-bd)' : ''">
-            <span :style="`color:var(--st-${UI.estadoInfo(i.severidad).key})`" x-html="UI.icon('alert',17)"></span>
+            <span :style="\`color:var(--st-\${UI.estadoInfo(i.severidad).key})\`" x-html="UI.icon('alert',17)"></span>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate" x-text="i.titulo"></p>
-              <p class="text-xs text-ink-3 mono" x-text="`${i.id} · ${CALC.sitio(i.sitioId).codigo} · límite ${UI.fmt.fecha(i.fechaLimite)}`"></p>
+              <p class="text-xs text-ink-3 mono" x-text="\`\${i.id} · \${CALC.sitio(i.sitioId).codigo} · límite \${UI.fmt.fecha(i.fechaLimite)}\`"></p>
             </div>
-            <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', `Vencida ${CALC.diasVencida(i)}d`)"></span>
+            <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', \`Vencida \${CALC.diasVencida(i)}d\`)"></span>
             <span x-html="UI.badge(i.severidad)"></span>
             <a :href="$store.ui.href('incidencias')" class="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Gestionar" x-html="UI.icon('chevronRight',15)"></a>
           </article>
@@ -179,7 +172,5 @@
       </aside>
     </div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

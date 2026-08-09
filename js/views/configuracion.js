@@ -1,29 +1,22 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configuración · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-</head>
-<body data-page="configuracion" data-title="Configuración" class="bg-surface-0">
+/* ============================================================================
+ * configuracion.js — Vista «Configuración»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 
-<main id="page" x-data="{ tab: 'general' }">
+
+export default {
+  title: "Configuración",
+  roles: ["admin"],
+  deps: [],
+  componente: null,
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="{ tab: 'general' }">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="max-w-4xl grid md:grid-cols-2 gap-4" x-html="UI.skel.cards(4)"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8 max-w-4xl" x-html="UI.errorState({ desc:'No se pudo cargar la configuración de la cuenta.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
     <div class="ui-card mt-8 max-w-4xl" x-html="UI.emptyState({ icon:'settings', title:'Sin parámetros personalizados', desc:'Esta cuenta usa la configuración por defecto del sistema.' })"></div>
@@ -156,7 +149,5 @@
       <a href="design-system.html" class="ui-btn ui-btn-secondary ui-btn-md w-full" x-html="UI.icon('grid',14)+' Abrir el sistema de diseño'"></a>
     </section>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

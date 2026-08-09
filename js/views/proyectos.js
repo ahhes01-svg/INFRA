@@ -1,23 +1,16 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proyectos · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-</head>
-<body data-page="proyectos" data-title="Proyectos" class="bg-surface-0">
+/* ============================================================================
+ * proyectos.js — Vista «Proyectos»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 
-<main id="page" x-data="{ nuevo: false }">
+
+export default {
+  title: "Proyectos",
+  roles: ["admin", "supervisor"],
+  deps: [],
+  componente: null,
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="{ nuevo: false }">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" x-html="UI.skel.cards(3)"></div>
@@ -34,7 +27,7 @@
   <template x-if="$store.ui.view==='error'">
     <div class="ui-card mt-8" x-html="UI.errorState({
       desc:'El listado de proyectos no respondió (HTTP 502 del gateway).',
-      retryAttr:`@click=&quot;$store.ui.setView('data')&quot;`
+      retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\`
     })"></div>
   </template>
 
@@ -118,7 +111,5 @@
       </div>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

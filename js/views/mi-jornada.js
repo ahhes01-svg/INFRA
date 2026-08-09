@@ -1,24 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mi jornada · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
+/* ============================================================================
+ * mi-jornada.js — Vista «Mi jornada»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 // Vista de técnico diseñada para el celular en campo:
 // objetivos táctiles de 44px+, acciones primarias en el tercio inferior,
 // alto contraste para sol directo, subir evidencia en dos toques.
-function jornadaPage() {
+export const state = () => {
   return {
     hoja: null,          // 'avance' | 'incidencia' | 'evidencia' → bottom sheet
     actSel: null,
@@ -85,11 +72,14 @@ function jornadaPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="mi-jornada" data-title="Mi jornada" data-layout="mobile" class="bg-surface-0">
 
-<main id="page" x-data="jornadaPage()" class="max-w-md mx-auto px-4 pb-40 pt-4">
+export default {
+  title: "Mi jornada",
+  roles: ["tecnico", "admin", "supervisor"],
+  deps: [],
+  componente: "jornadaPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="jornadaPage()" class="max-w-md mx-auto px-4 pb-40 pt-4">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-3">
@@ -104,7 +94,7 @@ function jornadaPage() {
     <div class="ui-card mt-6" x-html="UI.emptyState({ icon:'calendar', title:'Hoy no tienes actividades', desc:'Disfruta el descanso o consulta con tu supervisor. Cuando te asignen trabajo aparecerá aquí.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-6" x-html="UI.errorState({ title:'Sin conexión', desc:'No se pudo sincronizar. Tus registros se guardarán localmente y se enviarán al recuperar señal.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -148,7 +138,7 @@ function jornadaPage() {
           </template>
         </div>
         <p class="text-sm text-ink-2 mt-3 flex items-center gap-1.5" x-show="act.estado==='completada'"
-          x-html="UI.icon('checkCircle',15) + ` Trabajo cerrado ${act.finReal ? 'a las <span class=&quot;mono&quot;>' + act.finReal + '</span>' : ''}`"></p>
+          x-html="UI.icon('checkCircle',15) + \` Trabajo cerrado \${act.finReal ? 'a las <span class=&quot;mono&quot;>' + act.finReal + '</span>' : ''}\`"></p>
         <p class="text-sm mt-3 flex items-center gap-1.5" style="color:var(--st-pendiente)" x-show="act.estado==='en_revision'"
           x-html="UI.icon('clock',15) + ' Cierre enviado — esperando aprobación del supervisor'"></p>
       </article>
@@ -267,7 +257,5 @@ function jornadaPage() {
       </template>
     </div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

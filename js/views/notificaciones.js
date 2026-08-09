@@ -1,23 +1,16 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notificaciones · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-</head>
-<body data-page="notificaciones" data-title="Notificaciones" class="bg-surface-0">
+/* ============================================================================
+ * notificaciones.js — Vista «Notificaciones»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 
-<main id="page" x-data="{ filtro: '' }">
+
+export default {
+  title: "Notificaciones",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: [],
+  componente: null,
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="{ filtro: '' }">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-3 max-w-3xl">
@@ -33,7 +26,7 @@
     <div class="ui-card mt-8 max-w-3xl" x-html="UI.emptyState({ icon:'bell', title:'Bandeja al día', desc:'No tienes notificaciones. Los eventos de la operación (incidencias, retrasos, evidencias) llegarán aquí.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo sincronizar la bandeja de notificaciones.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo sincronizar la bandeja de notificaciones.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="max-w-3xl space-y-3">
@@ -57,7 +50,7 @@
           <p class="mono text-xs text-ink-3 mt-1" x-text="UI.fmt.fecha(n.fecha) + ' · ' + n.hora"></p>
         </div>
         <div class="flex gap-1.5 flex-none">
-          <a :href="$store.ui.href(n.link.replace('.html',''))" class="ui-btn ui-btn-secondary ui-btn-sm" @click="ACCIONES.marcarLeida(n.id)">Ir</a>
+          <a :href="'#/' + n.link.replace('.html','')" class="ui-btn ui-btn-secondary ui-btn-sm" @click="ACCIONES.marcarLeida(n.id)">Ir</a>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="!n.leida" @click="ACCIONES.marcarLeida(n.id)" x-tooltip="'Marcar leída'" aria-label="Marcar leída" x-html="UI.icon('check',14)"></button>
         </div>
       </article>
@@ -65,7 +58,5 @@
     <div class="ui-card" x-show="!$store.db.notificaciones.filter(n => filtro!=='no' || !n.leida).length"
       x-html="UI.emptyState({icon:'bell', title:'Nada pendiente', desc:'No hay notificaciones sin leer.'})"></div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

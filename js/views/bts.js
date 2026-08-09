@@ -1,29 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTS / Sitios · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
+/* ============================================================================
+ * bts.js — Vista «BTS / Sitios»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 const TIPOS_SITIO = ['Greenfield', 'Rooftop', 'Monoposte', 'Torre autosoportada', 'Camuflado (palmera)', 'Camuflado (chimenea)'];
 const TECNOLOGIAS = ['2G', '3G', '4G', '5G'];
 
-function btsPage() {
+export const state = () => {
   const vacio = () => ({
     id: null, codigo: '', nombre: '', direccion: '', distrito: '', provincia: 'Ica',
     lat: '', lng: '', tipo: 'Greenfield', altura: 30, tecnologias: ['4G'],
@@ -141,7 +123,7 @@ function btsPage() {
             <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3)">${s.codigo}</p>
             <p style="font-weight:600;font-size:13px;margin:2px 0">${s.nombre}</p>
             <p style="font-size:11px;color:var(--ink2)">${s.distrito} · ${s.tipo} · ${UI.estadoInfo(s.estado).label}</p>
-            <a href="bts-detalle.html?id=${s.id}&role=${Alpine.store('ui').role}&theme=${Alpine.store('ui').theme}"
+            <a href="#/bts-detalle&id=${s.id}"
                style="font-size:12px;color:#2563eb;font-weight:500">Ver ficha →</a></div>`)
           .addTo(this.capa);
       });
@@ -175,11 +157,14 @@ function btsPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="bts" data-title="BTS / Sitios" class="bg-surface-0">
 
-<main id="page" x-data="btsPage()">
+export default {
+  title: "BTS / Sitios",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: ["mapa", "mapaCluster"],
+  componente: "btsPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="btsPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -192,7 +177,7 @@ function btsPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'No hay sitios registrados', desc:'Importa o registra las estaciones base para verlas en el mapa y en el listado.', action: UI.btn({label:'Registrar sitio', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de georreferenciación no respondió. El listado puede mostrarse sin mapa.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de georreferenciación no respondió. El listado puede mostrarse sin mapa.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -299,7 +284,7 @@ function btsPage() {
         <span class="mono text-ink-2" x-text="rangeLabel"></span>
         <div class="flex gap-1">
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
-          <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+          <span class="mono self-center px-1 text-ink-2" x-text="\`\${page} / \${totalPages}\`"></span>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
         </div>
       </div>
@@ -446,7 +431,5 @@ function btsPage() {
       </div>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

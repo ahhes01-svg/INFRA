@@ -1,26 +1,13 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Técnicos · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
+/* ============================================================================
+ * tecnicos.js — Vista «Técnicos»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 const ROLES_TECNICO = ['Líder de cuadrilla', 'Técnico RF', 'Técnico electricista', 'Técnico de transmisión',
   'Técnico de energía', 'Técnico de comisionamiento', 'Técnico correctivo', 'Rigger / torrero', 'Drive tester'];
 const CERTIFICACIONES = ['Trabajos en altura', 'Primeros auxilios', 'Manejo defensivo',
   'Electricista industrial', 'Izaje y rigging nivel II', 'Anritsu certified', 'Huawei HCIA-5G', 'TEMS Investigation'];
 
-function tecnicosPage() {
+export const state = () => {
   const vacio = () => ({
     id: null, nombre: '', dni: '', rol: 'Técnico RF', especialidad: '', telefono: '',
     zona: 'Ica', estado: 'disponible', certificaciones: [],
@@ -35,7 +22,7 @@ function tecnicosPage() {
     cuentas: [],                // técnicos que ya tienen cuenta
 
     async init() {
-      const id = new URLSearchParams(location.search).get('id');
+      const id = App.param('id');
       if (id && CALC.tecnico(id).id) this.sel = id;
       await this.cargarCuentas();
       window.addEventListener('app:data', () => this.cargarCuentas());
@@ -129,11 +116,14 @@ function tecnicosPage() {
     ROLES_TECNICO, CERTIFICACIONES,
   };
 }
-</script>
-</head>
-<body data-page="tecnicos" data-title="Técnicos" class="bg-surface-0">
 
-<main id="page" x-data="tecnicosPage()">
+export default {
+  title: "Técnicos",
+  roles: ["admin", "supervisor"],
+  deps: [],
+  componente: "tecnicosPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="tecnicosPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3" x-html="UI.skel.cards(6)"></div>
@@ -142,7 +132,7 @@ function tecnicosPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'users', title:'No hay técnicos registrados', desc:'Registra a tu personal de campo para poder asignar actividades.', action: UI.btn({label:'Registrar técnico', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la planilla de técnicos.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la planilla de técnicos.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -201,7 +191,7 @@ function tecnicosPage() {
               <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear') && !$store.ui.demo && !cuentaDe(t.id)"
                 @click="abrirAcceso(t)" x-tooltip="'Crear cuenta de acceso'" aria-label="Crear acceso" x-html="UI.icon('shield',14)"></button>
               <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.role==='admin' && !$store.ui.demo && cuentaDe(t.id)"
-                @click="revocar(t)" x-tooltip="`Revocar el acceso de ${cuentaDe(t.id).email}`" aria-label="Revocar acceso" x-html="UI.icon('logout',14)"></button>
+                @click="revocar(t)" x-tooltip="\`Revocar el acceso de \${cuentaDe(t.id).email}\`" aria-label="Revocar acceso" x-html="UI.icon('logout',14)"></button>
               <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="$store.ui.puede('crear')" @click="borrando = t"
                 x-tooltip="'Dar de baja'" aria-label="Dar de baja" x-html="UI.icon('trash',14)"></button>
             </span>
@@ -425,12 +415,10 @@ function tecnicosPage() {
         </div>
         <div class="ui-drawer-foot">
           <button class="ui-btn ui-btn-secondary ui-btn-md" @click="sel=null">Cerrar</button>
-          <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')" onclick="location.href='agenda.html'+location.search">Asignar actividad</button>
+          <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')" onclick="App.ir('agenda')">Asignar actividad</button>
         </div>
       </aside>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

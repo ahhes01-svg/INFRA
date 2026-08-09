@@ -63,25 +63,54 @@ saltarse manipulando el JavaScript:
 - **Supabase** (Postgres, Auth, Storage) — backend sin servidor propio
 - **Chart.js** (gráficos), **FullCalendar** (agenda), **Leaflet** (mapas)
 
-## Estructura
+## Arquitectura
+
+Es una **aplicación de una sola página con carga bajo demanda**, sin paso de
+compilación para desplegar. Cada sección vive en su propio módulo y se descarga
+la primera vez que se visita; al cambiar de sección no se recarga el documento.
 
 ```
-index.html                  login (real o simulado según configuración)
-pages/design-system.html    catálogo completo de componentes
-pages/*.html                un archivo por módulo (19 pantallas)
-js/tokens.js                tokens de diseño + configuración de Tailwind
-js/components.js            componentes reutilizables (CSS + helpers + Alpine)
-js/data.js                  estructura de datos, cálculos y modo demo
-js/config.js                URL y llave del backend
-js/api.js                   cliente Supabase: sesión, carga y mutaciones
-js/layout.js                sidebar, navbar, roles, tema, toasts, arranque
-supabase/*.sql              esquema, datos, almacenamiento y usuarios
+index.html          login
+app.html            contenedor único de la aplicación
+css/tailwind.css    hoja compilada (17 KB) — ver build/README.md
+js/core/app.js      arranque: sesión, marco, Alpine, enrutador
+js/core/router.js   rutas #/… con import() dinámico por sección
+js/core/deps.js     Chart, FullCalendar y Leaflet solo cuando hacen falta
+js/core/shell.js    barra lateral, cabecera, campana y avisos (se monta una vez)
+js/core/calc.js     almacén en memoria y cálculos derivados
+js/views/*.js       una sección por módulo (18 vistas)
+js/demo/datos.js    conjunto de demostración (solo si no hay backend)
+js/api.js           cliente Supabase: sesión, carga y mutaciones
+js/components.js    componentes reutilizables (CSS + ayudantes + Alpine)
+js/tokens.js        tokens de diseño
+pages/design-system.html   catálogo de componentes
+supabase/*.sql      esquema, datos, almacenamiento, usuarios y gestión
+build/              configuración para regenerar la hoja de estilos
 ```
 
-Orden de construcción respetado: tokens → componentes → design system →
-datos → módulos. Ningún módulo define estilos propios. `js/api.js` conserva la
-misma superficie que la capa en memoria (`DB`, `CALC`, `ACCIONES`), por eso
-conectar el backend no obligó a reescribir ningún módulo.
+### Qué se carga y cuándo
+
+| Momento | Se descarga |
+|---|---|
+| Primera carga | Marco, estilos, Alpine, cliente Supabase y la sección de entrada |
+| Cambiar de sección | Solo el módulo de esa sección (4–26 KB) |
+| Entrar a Dashboard o Reportes | Chart.js, una vez por sesión |
+| Entrar a BTS | Leaflet, una vez por sesión |
+| Entrar a Agenda | FullCalendar, una vez por sesión |
+| Sin backend | El conjunto de demostración (50 KB) |
+
+Con el navegador ocioso se adelantan en segundo plano las secciones más
+visitadas, de modo que el primer clic ya las encuentra en memoria.
+
+### Por qué así y no con un framework compilado
+
+Vue o React habrían obligado a reescribir las 18 vistas y a compilar antes de
+cada despliegue. Los módulos nativos con `import()` dinámico dan la misma carga
+diferida conservando el despliegue de un solo `git push`, y las vistas siguen
+siendo el mismo marcado que ya estaba probado.
+
+`js/api.js` conserva la misma superficie que la capa en memoria (`DB`, `CALC`,
+`ACCIONES`), por eso conectar el backend no obligó a reescribir ningún módulo.
 
 ## Qué probar
 

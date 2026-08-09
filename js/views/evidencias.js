@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Evidencias · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function evidenciasPage() {
+/* ============================================================================
+ * evidencias.js — Vista «Evidencias»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     fTipo: '', fEstado: '', vista: null, // vista = evidencia en lightbox
     lista() {
@@ -32,11 +19,14 @@ function evidenciasPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="evidencias" data-title="Evidencias" class="bg-surface-0">
 
-<main id="page" x-data="evidenciasPage()">
+export default {
+  title: "Evidencias",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: [],
+  componente: "evidenciasPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="evidenciasPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -52,7 +42,7 @@ function evidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'camera', title:'Aún no hay evidencias', desc:'Cuando la cuadrilla suba fotos y actas desde campo aparecerán en esta galería, agrupadas por actividad.', action: UI.btn({label:'Subir evidencia', icon:'upload'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El repositorio de archivos no respondió. Las miniaturas pueden no cargar.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -112,7 +102,7 @@ function evidenciasPage() {
           <div class="ui-modal-head">
             <div>
               <h3 class="font-semibold" x-text="vista.titulo"></h3>
-              <p class="text-xs text-ink-3 mono" x-text="`${vista.id} · ${vista.actividadId} · ${vista.fecha} ${vista.hora} · ${CALC.tecnico(vista.subidoPor).nombre}`"></p>
+              <p class="text-xs text-ink-3 mono" x-text="\`\${vista.id} · \${vista.actividadId} · \${vista.fecha} \${vista.hora} · \${CALC.tecnico(vista.subidoPor).nombre}\`"></p>
             </div>
             <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="vista=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
           </div>
@@ -127,7 +117,5 @@ function evidenciasPage() {
       </div>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

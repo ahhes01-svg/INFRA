@@ -1,22 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Detalle de proyecto · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function proyectoPage() {
-  const id = new URLSearchParams(location.search).get('id') || 'pry-01';
+/* ============================================================================
+ * proyecto-detalle.js — Vista «Detalle de proyecto»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
+  const id = App.param('id') || 'pry-01';
   return {
     id,
     tab: 'resumen',
@@ -64,11 +51,14 @@ function proyectoPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="proyectos" data-title="Detalle de proyecto" class="bg-surface-0">
 
-<main id="page" x-data="proyectoPage()">
+export default {
+  title: "Detalle de proyecto",
+  roles: ["admin", "supervisor"],
+  deps: [],
+  componente: "proyectoPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="proyectoPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -77,10 +67,10 @@ function proyectoPage() {
     </div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el proyecto solicitado.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el proyecto solicitado.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
-    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'folder', title:'Proyecto no encontrado', desc:'El proyecto pudo haber sido archivado o el enlace es incorrecto.', action: UI.btn({label:'Ir a proyectos', attrs:`onclick=&quot;location.href='proyectos.html'&quot;`}) })"></div>
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'folder', title:'Proyecto no encontrado', desc:'El proyecto pudo haber sido archivado o el enlace es incorrecto.', action: UI.btn({label:'Ir a proyectos', attrs:\`onclick=&quot;App.ir('proyectos')&quot;\`}) })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -133,7 +123,7 @@ function proyectoPage() {
             <div class="flex items-center gap-3">
               <span class="w-32" x-html="UI.badge(e[0])"></span>
               <div class="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
-                <div class="h-full rounded-full tr-250" :style="`width:${acts.length ? acts.filter(a=>a.estado===e[0]).length/acts.length*100 : 0}%;background:var(--st-${UI.estadoInfo(e[0]).key})`"></div>
+                <div class="h-full rounded-full tr-250" :style="\`width:\${acts.length ? acts.filter(a=>a.estado===e[0]).length/acts.length*100 : 0}%;background:var(--st-\${UI.estadoInfo(e[0]).key})\`"></div>
               </div>
               <span class="mono text-sm w-6 text-right" x-text="acts.filter(a=>a.estado===e[0]).length"></span>
             </div>
@@ -194,7 +184,7 @@ function proyectoPage() {
         <span class="mono text-ink-2" x-text="rangeLabel"></span>
         <div class="flex gap-1">
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
-          <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+          <span class="mono self-center px-1 text-ink-2" x-text="\`\${page} / \${totalPages}\`"></span>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
         </div>
       </div>
@@ -248,11 +238,11 @@ function proyectoPage() {
     <!-- ── Cronograma ── -->
     <section x-show="tab==='cronograma'" x-cloak role="tabpanel" class="ui-card p-5 overflow-x-auto">
       <h2 class="text-sm font-semibold mb-1">Cronograma de actividades</h2>
-      <p class="text-xs text-ink-3 mb-4" x-show="cronoWin" x-text="`Ventana: ${acts.map(a=>a.fecha).sort()[0]} → ${acts.map(a=>a.fecha).sort().slice(-1)[0]} · la línea vertical marca hoy`"></p>
+      <p class="text-xs text-ink-3 mb-4" x-show="cronoWin" x-text="\`Ventana: \${acts.map(a=>a.fecha).sort()[0]} → \${acts.map(a=>a.fecha).sort().slice(-1)[0]} · la línea vertical marca hoy\`"></p>
       <div class="min-w-[640px] relative" x-show="cronoWin">
         <!-- línea de hoy -->
         <div class="absolute top-0 bottom-0 w-px z-10" aria-hidden="true"
-          :style="`left:calc(240px + (100% - 240px) * ${(Math.round((new Date($store.ui.hoy+'T12:00') - cronoWin.min)/86400000))/cronoWin.dias});background:var(--st-critico)`"></div>
+          :style="\`left:calc(240px + (100% - 240px) * \${(Math.round((new Date($store.ui.hoy+'T12:00') - cronoWin.min)/86400000))/cronoWin.dias});background:var(--st-critico)\`"></div>
         <template x-for="a in [...acts].sort((x,y)=>x.fecha.localeCompare(y.fecha))" :key="a.id">
           <div class="flex items-center gap-2 h-9 border-b border-line last:border-0">
             <div class="w-[240px] flex-none flex items-center gap-2 pr-2">
@@ -260,8 +250,8 @@ function proyectoPage() {
               <span class="text-xs truncate" x-text="CALC.tipo(a.tipoId).nombre"></span>
             </div>
             <div class="flex-1 relative h-5">
-              <div class="absolute top-0.5 h-4 rounded tr-250" :style="cronoPos(a) + `;background:var(--st-${UI.estadoInfo(a.estado).key})`"
-                x-tooltip="`${a.fecha} · ${a.hIni}–${a.hFin} · ${UI.estadoInfo(a.estado).label}`"></div>
+              <div class="absolute top-0.5 h-4 rounded tr-250" :style="cronoPos(a) + \`;background:var(--st-\${UI.estadoInfo(a.estado).key})\`"
+                x-tooltip="\`\${a.fecha} · \${a.hIni}–\${a.hFin} · \${UI.estadoInfo(a.estado).label}\`"></div>
             </div>
           </div>
         </template>
@@ -282,7 +272,7 @@ function proyectoPage() {
                 <td x-text="m.nombre"></td>
                 <td class="text-xs" x-text="m.categoria"></td>
                 <td class="text-xs" x-text="m.almacen"></td>
-                <td class="mono text-xs text-right" x-text="`${m.stock} / ${m.minimo} ${m.unidad}`"></td>
+                <td class="mono text-xs text-right" x-text="\`\${m.stock} / \${m.minimo} \${m.unidad}\`"></td>
                 <td x-html="UI.badge(CALC.estadoMaterial(m))"></td>
               </tr>
             </template>
@@ -295,17 +285,17 @@ function proyectoPage() {
     <section x-show="tab==='incidencias'" x-cloak role="tabpanel" class="space-y-3">
       <template x-for="i in CALC.incidenciasDeProyecto(id)" :key="i.id">
         <div class="ui-card p-4 flex flex-wrap items-start gap-3">
-          <span :style="`color:var(--st-${UI.estadoInfo(i.severidad).key})`" x-html="UI.icon('alert',18)"></span>
+          <span :style="\`color:var(--st-\${UI.estadoInfo(i.severidad).key})\`" x-html="UI.icon('alert',18)"></span>
           <div class="flex-1 min-w-[240px]">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="mono text-xs text-ink-3" x-text="i.id"></span>
               <span x-html="UI.badge(i.severidad, 'Severidad ' + UI.estadoInfo(i.severidad).label.toLowerCase())"></span>
               <span x-html="UI.badge(i.estado)"></span>
-              <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', `Vencida hace ${CALC.diasVencida(i)} días`)"></span>
+              <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', \`Vencida hace \${CALC.diasVencida(i)} días\`)"></span>
             </div>
             <p class="font-medium mt-1" x-text="i.titulo"></p>
             <p class="text-sm text-ink-2 mt-0.5" x-text="i.descripcion"></p>
-            <p class="text-xs text-ink-3 mt-1 mono" x-text="`${CALC.sitio(i.sitioId).codigo} · reportada ${UI.fmt.fecha(i.fecha)} ${i.hora} · límite ${UI.fmt.fecha(i.fechaLimite)}`"></p>
+            <p class="text-xs text-ink-3 mt-1 mono" x-text="\`\${CALC.sitio(i.sitioId).codigo} · reportada \${UI.fmt.fecha(i.fecha)} \${i.hora} · límite \${UI.fmt.fecha(i.fechaLimite)}\`"></p>
           </div>
           <a :href="$store.ui.href('incidencias')" class="ui-btn ui-btn-secondary ui-btn-sm">Gestionar</a>
         </div>
@@ -340,7 +330,7 @@ function proyectoPage() {
         <template x-for="h in historialProyecto" :key="h.id">
           <li class="ms-5">
             <span class="absolute -start-[5px] mt-1.5 w-2.5 h-2.5 rounded-full bg-surface-3 border border-line-strong" aria-hidden="true"></span>
-            <p class="text-xs text-ink-3 mono" x-text="`${UI.fmt.fecha(h.fecha)} · ${h.hora} · ${h.usuario}`"></p>
+            <p class="text-xs text-ink-3 mono" x-text="\`\${UI.fmt.fecha(h.fecha)} · \${h.hora} · \${h.usuario}\`"></p>
             <p class="text-sm mt-0.5" x-text="h.detalle"></p>
           </li>
         </template>
@@ -348,7 +338,5 @@ function proyectoPage() {
       <p x-show="!historialProyecto.length" class="text-sm text-ink-3">Sin registros para este proyecto.</p>
     </section>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

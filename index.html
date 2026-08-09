@@ -6,14 +6,13 @@
 <title>Ingresar · NettOps Perú</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/tailwind.css">
 <script src="js/tokens.js"></script>
 <script src="js/components.js"></script>
 <script src="js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/data.js"></script>
+<script src="js/core/calc.js"></script>
 <script src="js/api.js"></script>
-<script defer src="js/layout.js"></script>
 <script>
 function loginPage() {
   return {
@@ -43,10 +42,9 @@ function loginPage() {
 
     destino() {
       const next = new URLSearchParams(location.search).get('next');
-      if (next) return 'pages/' + decodeURIComponent(next);
       const rol = this.demo ? this.rol : (API.miPerfil()?.rol || 'tecnico');
-      const pagina = rol === 'tecnico' ? 'mi-jornada' : rol === 'supervisor' ? 'supervision' : 'dashboard';
-      return `pages/${pagina}.html?role=${rol}&theme=light`;
+      const pagina = next || (rol === 'tecnico' ? 'mi-jornada' : rol === 'supervisor' ? 'supervision' : 'dashboard');
+      return `app.html?role=${rol}#/${pagina}`;
     },
     entrar_al_sistema() { location.href = this.destino(); },
 
@@ -69,6 +67,7 @@ function loginPage() {
   };
 }
 </script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body data-layout="bare" class="bg-surface-0 min-h-screen flex flex-col" x-data="loginPage()">
 

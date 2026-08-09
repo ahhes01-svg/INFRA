@@ -1,22 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agenda · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function agendaPage() {
+/* ============================================================================
+ * agenda.js — Vista «Agenda y asignación»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     cal: null,
     filtroTec: '',
@@ -110,7 +96,7 @@ function agendaPage() {
           }
         },
         eventClick: (info) => {
-          location.href = 'actividades.html' + location.search.replace(/([?&])id=[^&]*&?/, '$1') + '&id=' + info.event.id;
+          App.ir('actividades').replace(/([?&])id=[^&]*&?/, '$1') + '&id=' + info.event.id;
         },
       });
       this.cal.render();
@@ -142,11 +128,14 @@ function agendaPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="agenda" data-title="Agenda y asignación" class="bg-surface-0">
 
-<main id="page" x-data="agendaPage()">
+export default {
+  title: "Agenda y asignación",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: ["calendar"],
+  componente: "agendaPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="agendaPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid lg:grid-cols-4 gap-4">
@@ -158,7 +147,7 @@ function agendaPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'calendar', title:'Agenda vacía', desc:'No hay actividades programadas en este rango. Programa la primera para verla en el calendario.', action: UI.btn({label:'Programar actividad', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo sincronizar la agenda con el servidor de planificación.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo sincronizar la agenda con el servidor de planificación.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="grid lg:grid-cols-4 gap-4 items-start">
@@ -214,9 +203,9 @@ function agendaPage() {
                   <template x-for="a in actsTL(t.id)" :key="a.id">
                     <button class="tl-block" role="listitem"
                       :class="crucesTL(t.id).has(a.id) && 'is-cruce'"
-                      :style="posTL(a) + `;background:var(--st-${UI.estadoInfo(a.estado).key}-bg);border-left-color:var(--st-${UI.estadoInfo(a.estado).key})`"
-                      x-tooltip="`${a.id} · ${CALC.tipo(a.tipoId).nombre} · ${a.hIni}–${a.hFin} · ${UI.estadoInfo(a.estado).label}` + (crucesTL(t.id).has(a.id) ? ' · ¡CRUCE DE HORARIO!' : '')"
-                      @click="location.href='actividades.html' + location.search.replace(/([?&])id=[^&]*&?/,'$1') + '&id=' + a.id"
+                      :style="posTL(a) + \`;background:var(--st-\${UI.estadoInfo(a.estado).key}-bg);border-left-color:var(--st-\${UI.estadoInfo(a.estado).key})\`"
+                      x-tooltip="\`\${a.id} · \${CALC.tipo(a.tipoId).nombre} · \${a.hIni}–\${a.hFin} · \${UI.estadoInfo(a.estado).label}\` + (crucesTL(t.id).has(a.id) ? ' · ¡CRUCE DE HORARIO!' : '')"
+                      @click="App.ir('actividades').replace(/([?&])id=[^&]*&?/,'$1') + '&id=' + a.id"
                       x-text="a.hIni + ' ' + CALC.sitio(a.sitioId).codigo"></button>
                   </template>
                 </div>
@@ -249,9 +238,9 @@ function agendaPage() {
           <div class="relative h-2.5 mt-2 rounded-full bg-surface-3 overflow-hidden" aria-hidden="true">
             <template x-for="a in cargaHoy(t.id)" :key="a.id">
               <div class="absolute top-0 bottom-0 rounded-full"
-                :style="`left:${((+a.hIni.slice(0,2))*60 + +a.hIni.slice(3) - 360) / 840 * 100}%;
-                         width:${((+a.hFin.slice(0,2))*60 + +a.hFin.slice(3) - (+a.hIni.slice(0,2))*60 - +a.hIni.slice(3)) / 840 * 100}%;
-                         background:var(--st-${UI.estadoInfo(a.estado).key})`"></div>
+                :style="\`left:\${((+a.hIni.slice(0,2))*60 + +a.hIni.slice(3) - 360) / 840 * 100}%;
+                         width:\${((+a.hFin.slice(0,2))*60 + +a.hFin.slice(3) - (+a.hIni.slice(0,2))*60 - +a.hIni.slice(3)) / 840 * 100}%;
+                         background:var(--st-\${UI.estadoInfo(a.estado).key})\`"></div>
             </template>
           </div>
           <p class="text-xs text-ink-3 mt-1.5">
@@ -315,7 +304,7 @@ function agendaPage() {
               <span style="color:var(--st-pendiente)" x-html="UI.icon('alert',16)"></span>
               <div>
                 <p class="font-semibold">Cruce de horario detectado</p>
-                <p class="text-ink-2 text-xs mt-0.5" x-text="cruceForm && `${cruceForm.t.nombre} ya tiene ${cruceForm.c.id} (${CALC.tipo(cruceForm.c.tipoId).nombre}) el ${cruceForm.c.fecha} de ${cruceForm.c.hIni} a ${cruceForm.c.hFin}. Cambia el horario o el técnico.`"></p>
+                <p class="text-ink-2 text-xs mt-0.5" x-text="cruceForm && \`\${cruceForm.t.nombre} ya tiene \${cruceForm.c.id} (\${CALC.tipo(cruceForm.c.tipoId).nombre}) el \${cruceForm.c.fecha} de \${cruceForm.c.hIni} a \${cruceForm.c.hFin}. Cambia el horario o el técnico.\`"></p>
               </div>
             </div>
           </div>
@@ -327,7 +316,5 @@ function agendaPage() {
       </div>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

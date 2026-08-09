@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NettOps Perú</title>
+<meta name="description" content="Gestión de operaciones de instalación y mantenimiento de estaciones base.">
+<meta name="theme-color" content="#0f172a">
+
+<!-- Fuentes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Hoja compilada: solo las utilidades que la aplicación usa (~17 KB en vez
+     de los 402 KB del compilador por CDN). Se regenera con build/README.md -->
+<link rel="stylesheet" href="css/tailwind.css">
+
+<!-- Tokens de diseño y componentes: necesarios antes del primer pintado -->
+<script src="js/tokens.js"></script>
+<script src="js/components.js"></script>
+<script src="js/config.js"></script>
+<script src="js/core/calc.js"></script>
+<script src="js/api.js"></script>
+
+<!-- El resto (Alpine, vistas, Chart, Leaflet, FullCalendar) se carga bajo
+     demanda desde js/core/app.js -->
+<script type="module" src="js/core/app.js"></script>
+</head>
+<body class="bg-surface-0 text-ink-1">
+
+<div id="app">
+  <!-- Esqueleto del primer pintado: la pantalla nunca aparece en blanco -->
+  <div style="display:flex;height:100vh">
+    <div style="width:224px;flex:none;background:var(--s1);border-right:1px solid var(--line)"></div>
+    <div style="flex:1;padding:24px">
+      <div class="ui-skel" style="width:220px;height:22px;margin-bottom:20px"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div class="ui-skel" style="height:88px"></div><div class="ui-skel" style="height:88px"></div>
+        <div class="ui-skel" style="height:88px"></div><div class="ui-skel" style="height:88px"></div>
+      </div>
+      <div class="ui-skel" style="height:280px"></div>
+    </div>
+  </div>
+</div>
+
+<noscript>
+  <div style="padding:32px;font-family:system-ui;max-width:520px;margin:0 auto">
+    <h1 style="font-size:18px;margin-bottom:8px">NettOps necesita JavaScript</h1>
+    <p style="color:#475569">Activa JavaScript en tu navegador para usar el sistema.</p>
+  </div>
+</noscript>
+
+</body>
+</html>

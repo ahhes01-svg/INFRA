@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Incidencias · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function incidenciasPage() {
+/* ============================================================================
+ * incidencias.js — Vista «Incidencias»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     fSev: '', fEstado: '', q: '',
     nuevo: false,
@@ -39,11 +26,14 @@ function incidenciasPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="incidencias" data-title="Incidencias" class="bg-surface-0">
 
-<main id="page" x-data="incidenciasPage()">
+export default {
+  title: "Incidencias",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: [],
+  componente: "incidenciasPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="incidenciasPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -55,7 +45,7 @@ function incidenciasPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'checkCircle', title:'Sin incidencias reportadas', desc:'Buena señal: no hay hallazgos abiertos en ningún sitio. Las incidencias que reporte la cuadrilla aparecerán aquí.', action: UI.btn({label:'Registrar incidencia', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar el registro de incidencias.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -87,13 +77,13 @@ function incidenciasPage() {
       <template x-for="i in lista()" :key="i.id">
         <article class="ui-card p-4" :style="CALC.incidenciaVencida(i) ? 'border-color:var(--st-critico-bd)' : ''">
           <div class="flex flex-wrap items-start gap-3">
-            <span class="mt-0.5" :style="`color:var(--st-${UI.estadoInfo(i.severidad).key})`" x-html="UI.icon('alert',20)"></span>
+            <span class="mt-0.5" :style="\`color:var(--st-\${UI.estadoInfo(i.severidad).key})\`" x-html="UI.icon('alert',20)"></span>
             <div class="flex-1 min-w-[260px]">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="mono text-xs text-ink-3" x-text="i.id"></span>
                 <span x-html="UI.badge(i.severidad, 'Severidad ' + UI.estadoInfo(i.severidad).label.toLowerCase())"></span>
                 <span x-html="UI.badge(i.estado)"></span>
-                <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', `Vencida hace ${CALC.diasVencida(i)} días`)"></span>
+                <span x-show="CALC.incidenciaVencida(i)" x-html="UI.badge('vencida', \`Vencida hace \${CALC.diasVencida(i)} días\`)"></span>
               </div>
               <h2 class="font-semibold mt-1.5" x-text="i.titulo"></h2>
               <p class="text-sm text-ink-2 mt-1" x-text="i.descripcion"></p>
@@ -101,8 +91,8 @@ function incidenciasPage() {
                 <a :href="$store.ui.href('bts-detalle')+'&id='+i.sitioId" class="mono text-brand-600 dark:text-brand-400 hover:underline" x-text="CALC.sitio(i.sitioId).codigo"></a>
                 <span x-show="i.actividadId" class="mono" x-text="'Actividad ' + i.actividadId"></span>
                 <span class="flex items-center gap-1" x-html="UI.icon('user',11) + ' ' + (CALC.tecnico(i.reportadoPor).nombre || 'Sistema')"></span>
-                <span class="mono" x-text="`Reportada ${UI.fmt.fecha(i.fecha)} ${i.hora}`"></span>
-                <span class="mono" :style="CALC.incidenciaVencida(i) ? 'color:var(--st-critico);font-weight:600' : ''" x-text="`Límite ${UI.fmt.fecha(i.fechaLimite)}`"></span>
+                <span class="mono" x-text="\`Reportada \${UI.fmt.fecha(i.fecha)} \${i.hora}\`"></span>
+                <span class="mono" :style="CALC.incidenciaVencida(i) ? 'color:var(--st-critico);font-weight:600' : ''" x-text="\`Límite \${UI.fmt.fecha(i.fechaLimite)}\`"></span>
               </div>
             </div>
             <div class="flex gap-2 flex-none">
@@ -170,7 +160,5 @@ function incidenciasPage() {
       </div>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

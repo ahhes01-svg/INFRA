@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control diario · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function controlPage() {
+/* ============================================================================
+ * control-diario.js — Vista «Control diario»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     fProyecto: '', fSitio: '', fTecnico: '',
     editando: null, // id de la fila en edición inline
@@ -57,11 +44,14 @@ function controlPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="control-diario" data-title="Control diario" class="bg-surface-0">
 
-<main id="page" x-data="controlPage()">
+export default {
+  title: "Control diario",
+  roles: ["admin", "supervisor"],
+  deps: [],
+  componente: "controlPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="controlPage()">
   <div x-data="dateRange(window.HOY)">
 
     <template x-if="$store.ui.view==='loading'">
@@ -71,10 +61,10 @@ function controlPage() {
       </div>
     </template>
     <template x-if="$store.ui.view==='empty'">
-      <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'grid', title:'Sin partes diarios en el rango', desc:'No hay actividades registradas para los filtros elegidos. Cambia el rango de fechas o programa trabajo en la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=&quot;location.href='agenda.html'&quot;`}) })"></div>
+      <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'grid', title:'Sin partes diarios en el rango', desc:'No hay actividades registradas para los filtros elegidos. Cambia el rango de fechas o programa trabajo en la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:\`onclick=&quot;App.ir('agenda')&quot;\`}) })"></div>
     </template>
     <template x-if="$store.ui.view==='error'">
-      <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de partes diarios devolvió un error inesperado (500).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+      <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El servicio de partes diarios devolvió un error inesperado (500).', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
     </template>
 
     <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -197,7 +187,5 @@ function controlPage() {
       </section>
     </div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

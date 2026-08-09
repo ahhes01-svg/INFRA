@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Historial · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function historialPage() {
+/* ============================================================================
+ * historial.js — Vista «Historial»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
   return {
     q: '', fAccion: '',
     acciones: [
@@ -51,11 +38,14 @@ function historialPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="historial" data-title="Historial" class="bg-surface-0">
 
-<main id="page" x-data="historialPage()">
+export default {
+  title: "Historial",
+  roles: ["admin", "supervisor"],
+  deps: [],
+  componente: "historialPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="historialPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="max-w-3xl space-y-3">
@@ -71,7 +61,7 @@ function historialPage() {
     <div class="ui-card mt-8 max-w-3xl" x-html="UI.emptyState({ icon:'history', title:'Historial vacío', desc:'Cada acción sobre actividades, incidencias y evidencias queda registrada aquí con fecha, hora y usuario.' })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo recuperar la bitácora de operaciones.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8 max-w-3xl" x-html="UI.errorState({ desc:'No se pudo recuperar la bitácora de operaciones.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="max-w-3xl space-y-4">
@@ -95,7 +85,7 @@ function historialPage() {
           <template x-for="h in items" :key="h.id">
             <div class="flex gap-3 p-3.5">
               <span class="w-7 h-7 rounded-full flex items-center justify-center flex-none border"
-                :style="`color:var(--st-${meta(h.accion)[3]});background:var(--st-${meta(h.accion)[3]}-bg);border-color:var(--st-${meta(h.accion)[3]}-bd)`"
+                :style="\`color:var(--st-\${meta(h.accion)[3]});background:var(--st-\${meta(h.accion)[3]}-bg);border-color:var(--st-\${meta(h.accion)[3]}-bd)\`"
                 x-html="UI.icon(meta(h.accion)[2], 13)"></span>
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline gap-2 flex-wrap">
@@ -114,7 +104,5 @@ function historialPage() {
     <div class="ui-card" x-show="!lista().length"
       x-html="UI.emptyState({icon:'search', title:'Sin coincidencias', desc:'Ningún registro coincide con la búsqueda o el filtro.'})"></div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};

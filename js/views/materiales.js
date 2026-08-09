@@ -1,27 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Materiales · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-</head>
-<body data-page="materiales" data-title="Materiales" class="bg-surface-0">
-
-<script>
+/* ============================================================================
+ * materiales.js — Vista «Materiales»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
 const CATEGORIAS_MAT = ['RF', 'Radio', 'Energía', 'Obra', 'Transmisión', 'Seguridad', 'Herramienta'];
 const UNIDADES_MAT = ['und', 'rollo', 'caja', 'kit', 'banco', 'gal', 'm', 'kg'];
 
-function materialesPage() {
+export const state = () => {
   const vacio = () => ({
     id: null, nombre: '', categoria: 'RF', unidad: 'und',
     stock: 0, minimo: 1, almacen: 'Almacén Ica', proyectoId: '',
@@ -111,9 +95,14 @@ function materialesPage() {
     },
   };
 }
-</script>
 
-<main id="page" x-data="materialesPage()">
+export default {
+  title: "Materiales",
+  roles: ["admin"],
+  deps: [],
+  componente: "materialesPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="materialesPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="space-y-4">
@@ -125,7 +114,7 @@ function materialesPage() {
     <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'box', title:'Almacén sin materiales', desc:'Registra los materiales y repuestos para controlar stock y mínimos.', action: UI.btn({label:'Registrar material', icon:'plus'}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El sistema de almacén no respondió (ERP fuera de línea).', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El sistema de almacén no respondió (ERP fuera de línea).', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4"
@@ -173,8 +162,8 @@ function materialesPage() {
     <!-- Contexto del filtro activo -->
     <p class="text-xs text-ink-2 flex items-center gap-1.5" x-show="fProyecto || fSitio" x-cloak>
       <span x-html="UI.icon('filter',13)"></span>
-      <span x-show="fProyecto" x-text="`Material del proyecto ${CALC.proyecto(fProyecto).codigo} y de uso general.`"></span>
-      <span x-show="fSitio" x-text="`Solo material ya despachado a ${CALC.sitio(fSitio).codigo}.`"></span>
+      <span x-show="fProyecto" x-text="\`Material del proyecto \${CALC.proyecto(fProyecto).codigo} y de uso general.\`"></span>
+      <span x-show="fSitio" x-text="\`Solo material ya despachado a \${CALC.sitio(fSitio).codigo}.\`"></span>
     </p>
 
     <div class="ui-table-wrap">
@@ -220,7 +209,7 @@ function materialesPage() {
       <span class="mono text-ink-2" x-text="rangeLabel"></span>
       <div class="flex gap-1">
         <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
-        <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+        <span class="mono self-center px-1 text-ink-2" x-text="\`\${page} / \${totalPages}\`"></span>
         <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
       </div>
     </div>
@@ -229,7 +218,7 @@ function materialesPage() {
   <!-- Menú contextual de material -->
   <template x-if="menu">
     <div class="fixed inset-0 z-50" @click="menu=null" @keydown.escape.window="menu=null">
-      <div class="ui-menu shadow-e2" :style="`left:${mx}px;top:${my}px`" role="menu">
+      <div class="ui-menu shadow-e2" :style="\`left:\${mx}px;top:\${my}px\`" role="menu">
         <button class="ui-menu-item" role="menuitem" @click="abrirIngreso(menu)"><span x-html="UI.icon('arrowUp',14)"></span> Registrar ingreso</button>
         <button class="ui-menu-item" role="menuitem" @click="abrirDespacho(menu)"><span x-html="UI.icon('arrowDown',14)"></span> Despachar a actividad</button>
         <button class="ui-menu-item" role="menuitem" @click="kardex=menu; menu=null"><span x-html="UI.icon('file',14)"></span> Ver kardex</button>
@@ -348,7 +337,7 @@ function materialesPage() {
             <div class="bg-surface-2 border border-line rounded-md p-3">
               <p class="font-medium text-sm" x-text="mat(despacho.matId).nombre"></p>
               <p class="mono text-xs text-ink-3 mt-0.5"
-                x-text="`${despacho.matId} · stock ${mat(despacho.matId).stock} ${mat(despacho.matId).unidad} · ${mat(despacho.matId).almacen}`"></p>
+                x-text="\`\${despacho.matId} · stock \${mat(despacho.matId).stock} \${mat(despacho.matId).unidad} · \${mat(despacho.matId).almacen}\`"></p>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
@@ -392,7 +381,7 @@ function materialesPage() {
           <div class="ui-modal-body space-y-4">
             <div class="bg-surface-2 border border-line rounded-md p-3">
               <p class="font-medium text-sm" x-text="mat(ingreso.matId).nombre"></p>
-              <p class="mono text-xs text-ink-3 mt-0.5" x-text="`${ingreso.matId} · stock actual ${mat(ingreso.matId).stock} ${mat(ingreso.matId).unidad}`"></p>
+              <p class="mono text-xs text-ink-3 mt-0.5" x-text="\`\${ingreso.matId} · stock actual \${mat(ingreso.matId).stock} \${mat(ingreso.matId).unidad}\`"></p>
             </div>
             <div>
               <label class="ui-label" for="in-cant">Cantidad que ingresa *</label>
@@ -416,7 +405,7 @@ function materialesPage() {
         <div class="ui-drawer-head">
           <div>
             <p class="font-semibold" x-text="mat(kardex).nombre"></p>
-            <p class="mono text-xs text-ink-3" x-text="`${kardex} · stock ${mat(kardex).stock} ${mat(kardex).unidad} · mínimo ${mat(kardex).minimo}`"></p>
+            <p class="mono text-xs text-ink-3" x-text="\`\${kardex} · stock \${mat(kardex).stock} \${mat(kardex).unidad} · mínimo \${mat(kardex).minimo}\`"></p>
           </div>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" @click="kardex=null" aria-label="Cerrar" x-html="UI.icon('x',15)"></button>
         </div>
@@ -425,13 +414,13 @@ function materialesPage() {
           <div class="space-y-2.5" x-show="CALC.movimientosDeMaterial(kardex).length">
             <template x-for="mv in CALC.movimientosDeMaterial(kardex)" :key="mv.id">
               <div class="flex items-start gap-2.5 border border-line rounded-md p-3">
-                <span :style="`color:var(--st-${mv.tipo==='ingreso' ? 'completado' : 'ejecucion'})`"
+                <span :style="\`color:var(--st-\${mv.tipo==='ingreso' ? 'completado' : 'ejecucion'})\`"
                   x-html="UI.icon(mv.tipo==='ingreso' ? 'arrowUp' : 'arrowDown', 15)"></span>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium" x-text="(mv.tipo==='ingreso' ? 'Ingreso' : 'Despacho') + ' de ' + mv.cantidad + ' ' + mat(kardex).unidad"></p>
                   <p class="text-xs text-ink-2" x-show="mv.actividadId"
                     x-text="mv.actividadId + ' · ' + (CALC.sitio(mv.sitioId).codigo || '')"></p>
-                  <p class="mono text-xs text-ink-3 mt-0.5" x-text="`${UI.fmt.fecha(mv.fecha)} ${mv.hora} · ${mv.usuario}`"></p>
+                  <p class="mono text-xs text-ink-3 mt-0.5" x-text="\`\${UI.fmt.fecha(mv.fecha)} \${mv.hora} · \${mv.usuario}\`"></p>
                 </div>
               </div>
             </template>
@@ -445,7 +434,5 @@ function materialesPage() {
       </aside>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

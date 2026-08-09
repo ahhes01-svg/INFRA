@@ -1,22 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Actividades · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function actividadesPage() {
-  const abrir = new URLSearchParams(location.search).get('id');
+/* ============================================================================
+ * actividades.js — Vista «Actividades»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
+  const abrir = App.param('id');
   return {
     sel: null,
     vista: 'tabla',            // tabla | kanban
@@ -135,18 +122,21 @@ function actividadesPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="actividades" data-title="Actividades" class="bg-surface-0">
 
-<main id="page" x-data="actividadesPage()">
+export default {
+  title: "Actividades",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: [],
+  componente: "actividadesPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="actividadesPage()">
 
   <template x-if="$store.ui.view==='loading'"><div x-html="UI.skel.table(10,8)"></div></template>
   <template x-if="$store.ui.view==='empty'">
-    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'clipboard', title:'No hay actividades registradas', desc:'Programa la primera actividad desde la Agenda para empezar a controlar el avance.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=&quot;location.href='agenda.html'&quot;`}) })"></div>
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'clipboard', title:'No hay actividades registradas', desc:'Programa la primera actividad desde la Agenda para empezar a controlar el avance.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:\`onclick=&quot;App.ir('agenda')&quot;\`}) })"></div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El listado de actividades no respondió a tiempo.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'El listado de actividades no respondió a tiempo.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'"
@@ -173,7 +163,7 @@ function actividadesPage() {
       </select>
       <button class="ui-btn ui-btn-ghost ui-btn-sm" x-show="vista==='tabla'" @click="resetFilters()">Limpiar</button>
       <button class="ui-btn ui-btn-primary ui-btn-md ml-auto" x-show="$store.ui.puede('asignar')"
-        onclick="location.href='agenda.html'+location.search" x-html="UI.icon('plus',15)+' Programar actividad'"></button>
+        onclick="App.ir('agenda')" x-html="UI.icon('plus',15)+' Programar actividad'"></button>
     </div>
 
     <!-- ══ Vista tabla ══ -->
@@ -221,7 +211,7 @@ function actividadesPage() {
         <span class="mono text-ink-2" x-text="rangeLabel"></span>
         <div class="flex gap-1">
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page<=1" @click="page--" aria-label="Anterior" x-html="UI.icon('chevronLeft',14)"></button>
-          <span class="mono self-center px-1 text-ink-2" x-text="`${page} / ${totalPages}`"></span>
+          <span class="mono self-center px-1 text-ink-2" x-text="\`\${page} / \${totalPages}\`"></span>
           <button class="ui-btn ui-btn-ghost ui-btn-sm" :disabled="page>=totalPages" @click="page++" aria-label="Siguiente" x-html="UI.icon('chevronRight',14)"></button>
         </div>
       </div>
@@ -312,7 +302,7 @@ function actividadesPage() {
             <ul class="space-y-1.5 text-sm">
               <li class="flex items-center gap-2" :style="!a.checklist.length || a.checklist.every(i=>i.ok) ? 'color:var(--st-completado)' : 'color:var(--st-pendiente)'">
                 <span x-html="UI.icon(!a.checklist.length || a.checklist.every(i=>i.ok) ? 'checkCircle' : 'clock', 14)"></span>
-                <span x-text="a.checklist.length ? `Checklist completo (${a.checklist.filter(i=>i.ok).length}/${a.checklist.length})` : 'Sin checklist estructurado'"></span>
+                <span x-text="a.checklist.length ? \`Checklist completo (\${a.checklist.filter(i=>i.ok).length}/\${a.checklist.length})\` : 'Sin checklist estructurado'"></span>
               </li>
               <li class="flex items-center gap-2" :style="CALC.evidenciasDeActividad(a.id).some(e=>e.tipo==='foto_antes') ? 'color:var(--st-completado)' : 'color:var(--st-pendiente)'">
                 <span x-html="UI.icon(CALC.evidenciasDeActividad(a.id).some(e=>e.tipo==='foto_antes') ? 'checkCircle' : 'camera', 14)"></span>
@@ -399,7 +389,5 @@ function actividadesPage() {
       </aside>
     </div>
   </template>
-</main>
-
-</body>
-</html>
+</div>`,
+};

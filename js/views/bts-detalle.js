@@ -1,24 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ficha de sitio · NettOps Perú</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../js/tokens.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="../js/components.js"></script>
-<script src="../js/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script defer src="../js/layout.js"></script>
-<script>
-function sitioPage() {
-  const id = new URLSearchParams(location.search).get('id') || 'st-02';
+/* ============================================================================
+ * bts-detalle.js — Vista «Ficha de sitio»
+ * Módulo cargado bajo demanda por js/core/router.js
+ * ==========================================================================*/
+export const state = () => {
+  const id = App.param('id') || 'st-02';
   return {
     id,
     map: null,
@@ -52,11 +37,14 @@ function sitioPage() {
     },
   };
 }
-</script>
-</head>
-<body data-page="bts" data-title="Ficha de sitio" class="bg-surface-0">
 
-<main id="page" x-data="sitioPage()">
+export default {
+  title: "Ficha de sitio",
+  roles: ["admin", "supervisor", "tecnico"],
+  deps: ["mapa"],
+  componente: "sitioPage",
+  state: typeof state !== 'undefined' ? state : null,
+  html: `<div x-data="sitioPage()">
 
   <template x-if="$store.ui.view==='loading'">
     <div class="grid lg:grid-cols-3 gap-4">
@@ -68,10 +56,10 @@ function sitioPage() {
     </div>
   </template>
   <template x-if="$store.ui.view==='error'">
-    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la ficha del sitio.', retryAttr:`@click=&quot;$store.ui.setView('data')&quot;` })"></div>
+    <div class="ui-card mt-8" x-html="UI.errorState({ desc:'No se pudo cargar la ficha del sitio.', retryAttr:\`@click=&quot;$store.ui.setView('data')&quot;\` })"></div>
   </template>
   <template x-if="$store.ui.view==='empty'">
-    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'Sitio no encontrado', desc:'Verifica el código o vuelve al listado.', action: UI.btn({label:'Ir a BTS / Sitios', attrs:`onclick=&quot;location.href='bts.html'&quot;`}) })"></div>
+    <div class="ui-card mt-8" x-html="UI.emptyState({ icon:'tower', title:'Sitio no encontrado', desc:'Verifica el código o vuelve al listado.', action: UI.btn({label:'Ir a BTS / Sitios', attrs:\`onclick=&quot;App.ir('bts')&quot;\`}) })"></div>
   </template>
 
   <div x-show="$store.ui.view==='data'" class="space-y-4">
@@ -93,7 +81,7 @@ function sitioPage() {
         <button class="ui-btn ui-btn-secondary ui-btn-md" x-show="$store.ui.puede('exportar')" @click="UI.protoNotice()"
           x-html="UI.icon('download',14)+' Exportar ficha'"></button>
         <button class="ui-btn ui-btn-primary ui-btn-md" x-show="$store.ui.puede('asignar')"
-          onclick="location.href='agenda.html' + location.search.replace(/id=[^&]*&?/,'')"
+          onclick="App.ir('agenda').replace(/id=[^&]*&?/,'')"
           x-html="UI.icon('calendar',14)+' Programar actividad'"></button>
       </div>
     </header>
@@ -156,7 +144,7 @@ function sitioPage() {
             </table>
           </div>
           <div class="ui-card" x-show="!acts.length"
-            x-html="UI.emptyState({icon:'clipboard', title:'Sin actividades registradas', desc:'Programa la primera actividad para este sitio desde la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:`onclick=&quot;location.href='agenda.html'&quot;`})})"></div>
+            x-html="UI.emptyState({icon:'clipboard', title:'Sin actividades registradas', desc:'Programa la primera actividad para este sitio desde la Agenda.', action: UI.btn({label:'Ir a la Agenda', icon:'calendar', attrs:\`onclick=&quot;App.ir('agenda')&quot;\`})})"></div>
         </section>
 
         <section aria-label="Materiales despachados al sitio">
@@ -189,7 +177,7 @@ function sitioPage() {
                 <img :src="e.archivo" :alt="e.titulo" loading="lazy" class="w-full h-28 object-cover">
                 <figcaption class="p-2">
                   <p class="text-xs font-medium truncate" x-text="e.titulo"></p>
-                  <p class="mono text-xs text-ink-3" x-text="`${e.fecha} ${e.hora}`"></p>
+                  <p class="mono text-xs text-ink-3" x-text="\`\${e.fecha} \${e.hora}\`"></p>
                 </figcaption>
               </figure>
             </template>
@@ -200,7 +188,5 @@ function sitioPage() {
       </div>
     </div>
   </div>
-</main>
-
-</body>
-</html>
+</div>`,
+};
