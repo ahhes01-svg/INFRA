@@ -42,9 +42,12 @@ function loginPage() {
 
     destino() {
       const next = new URLSearchParams(location.search).get('next');
-      const rol = this.demo ? this.rol : (API.miPerfil()?.rol || 'tecnico');
-      const pagina = next || (rol === 'tecnico' ? 'mi-jornada' : rol === 'supervisor' ? 'supervision' : 'dashboard');
-      return `app.html?role=${rol}#/${pagina}`;
+      // Sin perfil cargado no adivinamos el rol: la aplicación lo resolverá
+      const perfil = this.demo ? null : API.miPerfil();
+      const rol = this.demo ? this.rol : (perfil ? perfil.rol : null);
+      const inicio = rol === 'tecnico' ? 'mi-jornada' : rol === 'supervisor' ? 'supervision' : 'dashboard';
+      const pagina = next || inicio;
+      return `app.html${rol ? '?role=' + rol : ''}#/${pagina}`;
     },
     entrar_al_sistema() { location.href = this.destino(); },
 
@@ -55,14 +58,24 @@ function loginPage() {
 
       this.cargando = true;
       if (this.demo) {
-        // Sin backend: acceso simulado como antes
+        // Sin backend: acceso simulado
         setTimeout(() => this.entrar_al_sistema(), 500);
         return;
       }
-      const r = await API.entrar(this.email.trim(), this.clave);
-      this.cargando = false;
-      if (!r.ok) { this.errorServidor = r.error; return; }
-      this.entrar_al_sistema();
+      // Cualquier fallo debe verse: si esto quedara sin capturar, el botón se
+      // quedaría girando para siempre y el usuario no sabría por qué.
+      try {
+        const r = await API.entrar(this.email.trim(), this.clave);
+        if (!r.ok) { this.errorServidor = r.error; return; }
+        this.entrar_al_sistema();
+      } catch (e) {
+        console.error('Error al iniciar sesión:', e);
+        this.errorServidor = /fetch|network/i.test(e.message || '')
+          ? 'No se pudo contactar con el servidor. Revisa tu conexión a internet.'
+          : 'No se pudo iniciar sesión: ' + (e.message || 'error inesperado');
+      } finally {
+        this.cargando = false;
+      }
     },
   };
 }

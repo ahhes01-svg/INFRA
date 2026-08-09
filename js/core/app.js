@@ -51,7 +51,9 @@ async function prepararDatos() {
   }
 
   if (!window.API.sesionActiva()) {
-    location.replace('index.html');       // al login
+    // Al volver del login se retoma la sección que se estaba viendo
+    const destino = (location.hash || '').replace(/^#\/?/, '').split(/[&?]/)[0];
+    location.replace('index.html' + (destino ? '?next=' + encodeURIComponent(destino) : ''));
     return null;
   }
 
@@ -71,6 +73,9 @@ function registrarStores(demo, errorCarga) {
     Alpine.store('ui', {
       role: (!demo && perfil) ? perfil.rol : rolUrl,
       demo,
+      // Cuenta de técnico sin ficha vinculada: RLS le oculta todo con razón,
+      // pero hay que decírselo o la aplicación parece vacía sin motivo.
+      sinVincular: !demo && !!perfil && perfil.rol === 'tecnico' && !perfil.tecnico_id,
       theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
       view: errorCarga ? 'error' : 'data',
       errorCarga: errorCarga || '',

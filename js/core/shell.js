@@ -80,6 +80,12 @@ function inyectarCss() {
   .shell-top .t-right{ margin-left:auto; display:flex; align-items:center; gap:6px; }
   .shell-top select.ui-select{ width:auto; height:32px; font-size:13px; padding-right:26px; }
 
+  .shell-aviso{ flex:none; display:flex; align-items:flex-start; gap:8px; padding:10px 16px;
+    background:var(--st-pendiente-bg); border-bottom:1px solid var(--st-pendiente-bd); color:var(--st-pendiente);
+    font-size:13px; line-height:1.45; }
+  .shell-aviso svg{ flex:none; margin-top:1px; }
+  .shell-aviso strong{ font-weight:600; }
+
   .seg{ display:flex; align-items:center; gap:1px; border:1px solid var(--line); border-radius:6px;
     padding:2px; background:var(--s2); }
   .seg button{ padding:0 9px; height:24px; border-radius:4px; font-size:11px; font-weight:500;
@@ -298,6 +304,15 @@ function html() {
           </button>
         </div>
       </header>
+
+      <!-- Una cuenta de técnico sin ficha vinculada no tiene permiso para ver
+           ninguna actividad: sin este aviso la aplicación parecería rota. -->
+      <div class="shell-aviso" role="status" x-show="$store.ui.sinVincular" x-cloak>
+        <span aria-hidden="true">${UI.icon('alert', 16)}</span>
+        <p>Tu cuenta todavía no está vinculada a una ficha de técnico, por eso no
+           ves actividades. Pide al administrador que la vincule desde
+           <strong>Técnicos → Cuentas de acceso</strong>.</p>
+      </div>
 
       <div id="main-slot"><main id="vista"></main></div>
     </div>

@@ -169,12 +169,29 @@ window.API = (function () {
     return msg || 'No se pudo iniciar sesión';
   }
 
+  // Con mala cobertura la petición puede quedarse colgada sin resolver nunca.
+  // Sin este límite el botón giraría indefinidamente sin explicar nada.
+  function conLimite(promesa, ms, mensaje) {
+    return Promise.race([
+      promesa,
+      new Promise((_, rej) => setTimeout(() => rej(new Error(mensaje)), ms)),
+    ]);
+  }
+
   async function entrar(email, password) {
     if (modoDemo) return { ok: true, demo: true };
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return { ok: false, error: traducirError(error) };
-    await cargarPerfil();
-    return { ok: true };
+    try {
+      const { error } = await conLimite(
+        sb.auth.signInWithPassword({ email, password }),
+        20000,
+        'El servidor no respondió en 20 segundos. Revisa tu conexión e inténtalo otra vez.'
+      );
+      if (error) return { ok: false, error: traducirError(error) };
+      await conLimite(cargarPerfil(), 15000, 'La sesión se abrió, pero no se pudo leer tu perfil. Vuelve a intentarlo.');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: traducirError(e) };
+    }
   }
 
   async function salir() {
