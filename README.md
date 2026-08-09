@@ -10,6 +10,9 @@ con Supabase como servicio de autenticación y datos.
 - Verificación adicional del rol `admin` en `public.perfiles`.
 - Layout adaptable para escritorio y teléfono.
 - Dashboard conectado directamente a Supabase.
+- Módulos Vue para Proyectos, BTS/Sitios y Actividades.
+- Detalles de proyecto y sitio con relaciones cargadas bajo demanda.
+- Flujo administrativo de actividades mediante funciones RPC de Supabase.
 - Consultas limitadas a los datos necesarios para la pantalla.
 - Sin modo demo, selección simulada de roles ni datos embebidos.
 - Dependencias locales y compiladas; no se utilizan CDN en producción.

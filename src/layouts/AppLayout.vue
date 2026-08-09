@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session.js'
+import ToastStack from '../components/ToastStack.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,6 +11,9 @@ const sidebarOpen = ref(false)
 
 const navigation = [
   { label: 'Dashboard', to: '/dashboard', icon: '▦' },
+  { label: 'Proyectos', to: '/proyectos', icon: '□' },
+  { label: 'BTS / Sitios', to: '/sitios', icon: '⌁' },
+  { label: 'Actividades', to: '/actividades', icon: '✓' },
 ]
 
 const pageTitle = computed(() => route.meta.title || 'INFRA')
@@ -73,5 +77,6 @@ async function logout() {
         <RouterView />
       </main>
     </section>
+    <ToastStack />
   </div>
 </template>
