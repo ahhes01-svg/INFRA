@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * control-diario.js — Vista «Control diario»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     fProyecto: '', fSitio: '', fTecnico: '',
     editando: null, // id de la fila en edición inline
@@ -45,7 +46,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('control-diario', {
   title: "Control diario",
   roles: ["admin", "supervisor"],
   deps: [],
@@ -188,4 +189,5 @@ export default {
     </div>
   </div>
 </div>`,
-};
+});
+})();

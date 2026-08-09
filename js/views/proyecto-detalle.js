@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * proyecto-detalle.js — Vista «Detalle de proyecto»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   const id = App.param('id') || 'pry-01';
   return {
     id,
@@ -52,7 +53,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('proyecto-detalle', {
   title: "Detalle de proyecto",
   roles: ["admin", "supervisor"],
   deps: [],
@@ -339,4 +340,5 @@ export default {
     </section>
   </div>
 </div>`,
-};
+});
+})();

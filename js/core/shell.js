@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * shell.js — Marco de la aplicación · NettOps Perú
  *
@@ -10,7 +11,7 @@
  * externa tarde o falle.
  * ==========================================================================*/
 
-export const NAV = [
+const NAV = [
   { id: 'mi-jornada', label: 'Mi jornada', icon: 'smartphone', roles: ['tecnico'] },
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', roles: ['admin', 'supervisor'] },
   { id: 'supervision', label: 'Supervisión', icon: 'shield', roles: ['supervisor'] },
@@ -29,16 +30,16 @@ export const NAV = [
   { id: 'configuracion', label: 'Configuración', icon: 'settings', roles: ['admin'] },
 ];
 
-export const ROLES = { admin: 'Administrador', supervisor: 'Supervisor', tecnico: 'Técnico' };
+const ROLES = { admin: 'Administrador', supervisor: 'Supervisor', tecnico: 'Técnico' };
 
-export const PERMISOS = {
+const PERMISOS = {
   admin: ['crear', 'editar', 'eliminar', 'aprobar', 'asignar', 'exportar', 'configurar', 'campo'],
   supervisor: ['crear', 'editar', 'aprobar', 'asignar', 'exportar', 'campo'],
   tecnico: ['campo'],
 };
 
 /* ── CSS propio del marco ─────────────────────────────────────────────────*/
-export function inyectarCss() {
+function inyectarCss() {
   if (document.getElementById('shell-css')) return;
   const css = `
   .shell{ display:flex; height:100vh; height:100dvh; overflow:hidden; }
@@ -148,7 +149,7 @@ export function inyectarCss() {
 }
 
 /* ── Marcado del marco ────────────────────────────────────────────────────*/
-export function html() {
+function html() {
   const UI = window.UI;
   return `
   <div class="shell" x-data="{}">
@@ -365,3 +366,6 @@ export function html() {
     </div>
   </div>`;
 }
+
+NettOps.shell = { NAV, ROLES, PERMISOS, inyectarCss, html };
+})();

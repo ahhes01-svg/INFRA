@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * router.js — Enrutado por hash con carga diferida de vistas
  *
- * Cada sección vive en js/views/<nombre>.js y se descarga con import()
- * dinámico la primera vez que se visita. Al cambiar de sección no se recarga
+ * Cada sección vive en js/views/<nombre>.js y se descarga con una etiqueta
+ * script la primera vez que se visita. Al cambiar de sección no se recarga
  * el documento: el shell permanece y solo se reemplaza el contenido.
  *
  * Formato de ruta:  #/actividades          →  vista sin parámetros
@@ -11,14 +12,14 @@
  * enlaces heredados que concatenaban «&id=».
  * ==========================================================================*/
 
-import { cargarVarias } from './deps.js';
+const { cargarVarias } = NettOps.deps;
 
 const cache = new Map();      // nombre → módulo ya importado
 let vistaActual = null;
 let contenedor = null;
 let alRenderizar = null;      // callback del shell (título, menú activo…)
 
-export function parsearRuta(hash = location.hash) {
+function parsearRuta(hash = location.hash) {
   const limpio = hash.replace(/^#\/?/, '');
   if (!limpio) return { nombre: '', params: {} };
   const corte = limpio.search(/[?&]/);
@@ -30,22 +31,33 @@ export function parsearRuta(hash = location.hash) {
   return { nombre: decodeURIComponent(nombre), params };
 }
 
-export function rutaActual() { return parsearRuta(); }
+function rutaActual() { return parsearRuta(); }
 
-export function ir(nombre, params = {}) {
+function ir(nombre, params = {}) {
   const q = new URLSearchParams(params).toString();
   location.hash = '#/' + nombre + (q ? '&' + q : '');
 }
 
-export function reemplazar(nombre, params = {}) {
+function reemplazar(nombre, params = {}) {
   const q = new URLSearchParams(params).toString();
   location.replace('#/' + nombre + (q ? '&' + q : ''));
 }
 
+function cargarScriptVista(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = () => rej(new Error('No se encontró el archivo de la sección'));
+    document.head.appendChild(s);
+  });
+}
+
 async function cargarVista(nombre) {
   if (cache.has(nombre)) return cache.get(nombre);
-  const mod = await import(`../views/${nombre}.js`);
-  const vista = mod.default;
+  await cargarScriptVista(`js/views/${nombre}.js`);
+  const vista = NettOps.vistas[nombre];
+  if (!vista) throw new Error('La sección no se registró correctamente');
   cache.set(nombre, vista);
   return vista;
 }
@@ -78,7 +90,7 @@ function pintarError(nombre, e) {
     </div>`;
 }
 
-export async function resolver() {
+async function resolver() {
   const { nombre, params } = rutaActual();
   const destino = nombre || (window.App.rolActual() === 'tecnico' ? 'mi-jornada' : 'dashboard');
 
@@ -127,7 +139,7 @@ export async function resolver() {
   if (alRenderizar) alRenderizar(destino, vista);
 }
 
-export function iniciar(el, onRender) {
+function iniciar(el, onRender) {
   contenedor = el;
   alRenderizar = onRender;
   window.addEventListener('hashchange', resolver);
@@ -136,7 +148,10 @@ export function iniciar(el, onRender) {
 
 /* Precarga en segundo plano las secciones más usadas, cuando el navegador
    está ocioso. Así el primer clic del usuario ya las encuentra en memoria. */
-export function precargar(nombres = []) {
+function precargar(nombres = []) {
   const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1200));
   idle(() => { nombres.forEach(n => { if (!cache.has(n)) cargarVista(n).catch(() => {}); }); });
 }
+
+NettOps.router = { parsearRuta, rutaActual, ir, reemplazar, resolver, iniciar, precargar };
+})();

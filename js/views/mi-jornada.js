@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * mi-jornada.js — Vista «Mi jornada»
  * Módulo cargado bajo demanda por js/core/router.js
@@ -5,7 +6,7 @@
 // Vista de técnico diseñada para el celular en campo:
 // objetivos táctiles de 44px+, acciones primarias en el tercio inferior,
 // alto contraste para sol directo, subir evidencia en dos toques.
-export const state = () => {
+const state = () => {
   return {
     hoja: null,          // 'avance' | 'incidencia' | 'evidencia' → bottom sheet
     actSel: null,
@@ -73,7 +74,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('mi-jornada', {
   title: "Mi jornada",
   roles: ["tecnico", "admin", "supervisor"],
   deps: [],
@@ -258,4 +259,5 @@ export default {
     </div>
   </div>
 </div>`,
-};
+});
+})();

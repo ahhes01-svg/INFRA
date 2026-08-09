@@ -1,10 +1,11 @@
+(function () {
 /* ============================================================================
  * notificaciones.js — Vista «Notificaciones»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
 
 
-export default {
+window.NettOps.registrarVista('notificaciones', {
   title: "Notificaciones",
   roles: ["admin", "supervisor", "tecnico"],
   deps: [],
@@ -59,4 +60,5 @@ export default {
       x-html="UI.emptyState({icon:'bell', title:'Nada pendiente', desc:'No hay notificaciones sin leer.'})"></div>
   </div>
 </div>`,
-};
+});
+})();

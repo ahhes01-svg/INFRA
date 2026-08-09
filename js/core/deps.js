@@ -1,3 +1,10 @@
+(function () {
+window.NettOps = window.NettOps || {};
+window.NettOps.vistas = window.NettOps.vistas || {};
+window.NettOps.registrarVista = function (nombre, definicion) {
+  window.NettOps.vistas[nombre] = definicion;
+};
+
 /* ============================================================================
  * deps.js — Carga de librerías bajo demanda
  *
@@ -52,7 +59,7 @@ function cargarCss(href) {
   });
 }
 
-export function cargar(nombre) {
+function cargar(nombre) {
   const dep = CDN[nombre];
   if (!dep) return Promise.resolve();
   if (dep.listo()) return Promise.resolve();
@@ -68,6 +75,9 @@ export function cargar(nombre) {
   return p;
 }
 
-export function cargarVarias(nombres = []) {
+function cargarVarias(nombres = []) {
   return Promise.all(nombres.map(cargar));
 }
+
+NettOps.deps = { cargar, cargarVarias };
+})();

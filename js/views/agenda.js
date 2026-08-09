@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * agenda.js — Vista «Agenda y asignación»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     cal: null,
     filtroTec: '',
@@ -129,7 +130,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('agenda', {
   title: "Agenda y asignación",
   roles: ["admin", "supervisor", "tecnico"],
   deps: ["calendar"],
@@ -317,4 +318,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

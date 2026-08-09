@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * dashboard.js — Vista «Dashboard»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     init() {
       this.$nextTick(() => this.montarGraficos());
@@ -99,7 +100,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('dashboard', {
   title: "Dashboard",
   roles: ["admin", "supervisor"],
   deps: ["chart"],
@@ -261,4 +262,5 @@ export default {
     </section>
   </div>
 </div>`,
-};
+});
+})();

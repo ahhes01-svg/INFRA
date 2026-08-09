@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * evidencias.js — Vista «Evidencias»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     fTipo: '', fEstado: '', vista: null, // vista = evidencia en lightbox
     lista() {
@@ -20,7 +21,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('evidencias', {
   title: "Evidencias",
   roles: ["admin", "supervisor", "tecnico"],
   deps: [],
@@ -118,4 +119,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

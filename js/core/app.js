@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * app.js — Arranque de la aplicación · NettOps Perú
  *
@@ -6,9 +7,9 @@
  * bajo demanda.
  * ==========================================================================*/
 
-import * as Router from './router.js';
-import * as Shell from './shell.js';
-import { cargar } from './deps.js';
+const Router = NettOps.router;
+const Shell = NettOps.shell;
+const { cargar } = NettOps.deps;
 
 const ALPINE_CDN = 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js';
 
@@ -45,7 +46,7 @@ async function prepararDatos() {
 
   if (estado.modoDemo) {
     // Sin backend: traemos el conjunto de demostración solo ahora
-    await import('../demo/datos.js');
+    await cargarScript('js/demo/datos.js');
     return { demo: true };
   }
 
@@ -154,4 +155,5 @@ function registrarStores(demo, errorCarga) {
 
   // Cuando el navegador esté ocioso, adelanta las secciones más visitadas
   Router.precargar(['actividades', 'bts', 'incidencias']);
+})();
 })();

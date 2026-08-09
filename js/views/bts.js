@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * bts.js — Vista «BTS / Sitios»
  * Módulo cargado bajo demanda por js/core/router.js
@@ -5,7 +6,7 @@
 const TIPOS_SITIO = ['Greenfield', 'Rooftop', 'Monoposte', 'Torre autosoportada', 'Camuflado (palmera)', 'Camuflado (chimenea)'];
 const TECNOLOGIAS = ['2G', '3G', '4G', '5G'];
 
-export const state = () => {
+const state = () => {
   const vacio = () => ({
     id: null, codigo: '', nombre: '', direccion: '', distrito: '', provincia: 'Ica',
     lat: '', lng: '', tipo: 'Greenfield', altura: 30, tecnologias: ['4G'],
@@ -158,7 +159,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('bts', {
   title: "BTS / Sitios",
   roles: ["admin", "supervisor", "tecnico"],
   deps: ["mapa", "mapaCluster"],
@@ -432,4 +433,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

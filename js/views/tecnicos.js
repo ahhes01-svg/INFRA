@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * tecnicos.js — Vista «Técnicos»
  * Módulo cargado bajo demanda por js/core/router.js
@@ -7,7 +8,7 @@ const ROLES_TECNICO = ['Líder de cuadrilla', 'Técnico RF', 'Técnico electrici
 const CERTIFICACIONES = ['Trabajos en altura', 'Primeros auxilios', 'Manejo defensivo',
   'Electricista industrial', 'Izaje y rigging nivel II', 'Anritsu certified', 'Huawei HCIA-5G', 'TEMS Investigation'];
 
-export const state = () => {
+const state = () => {
   const vacio = () => ({
     id: null, nombre: '', dni: '', rol: 'Técnico RF', especialidad: '', telefono: '',
     zona: 'Ica', estado: 'disponible', certificaciones: [],
@@ -117,7 +118,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('tecnicos', {
   title: "Técnicos",
   roles: ["admin", "supervisor"],
   deps: [],
@@ -421,4 +422,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

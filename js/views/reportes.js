@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * reportes.js — Vista «Reportes»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     init() { this.$nextTick(() => this.montar()); },
     cumplimientoProyecto(p) {
@@ -57,7 +58,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('reportes', {
   title: "Reportes",
   roles: ["admin", "supervisor"],
   deps: ["chart"],
@@ -133,4 +134,5 @@ export default {
     </section>
   </div>
 </div>`,
-};
+});
+})();

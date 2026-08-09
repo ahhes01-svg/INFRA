@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * historial.js — Vista «Historial»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     q: '', fAccion: '',
     acciones: [
@@ -39,7 +40,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('historial', {
   title: "Historial",
   roles: ["admin", "supervisor"],
   deps: [],
@@ -105,4 +106,5 @@ export default {
       x-html="UI.emptyState({icon:'search', title:'Sin coincidencias', desc:'Ningún registro coincide con la búsqueda o el filtro.'})"></div>
   </div>
 </div>`,
-};
+});
+})();

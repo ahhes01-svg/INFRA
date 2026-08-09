@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * datos.js — Conjunto de demostración · NettOps Perú
  *
@@ -509,3 +510,4 @@ window.__ACCIONES_DEMO = {
     tocar();
   },
 };
+})();

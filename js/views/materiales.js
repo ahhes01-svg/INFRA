@@ -1,3 +1,4 @@
+(function () {
 /* ============================================================================
  * materiales.js — Vista «Materiales»
  * Módulo cargado bajo demanda por js/core/router.js
@@ -5,7 +6,7 @@
 const CATEGORIAS_MAT = ['RF', 'Radio', 'Energía', 'Obra', 'Transmisión', 'Seguridad', 'Herramienta'];
 const UNIDADES_MAT = ['und', 'rollo', 'caja', 'kit', 'banco', 'gal', 'm', 'kg'];
 
-export const state = () => {
+const state = () => {
   const vacio = () => ({
     id: null, nombre: '', categoria: 'RF', unidad: 'und',
     stock: 0, minimo: 1, almacen: 'Almacén Ica', proyectoId: '',
@@ -96,7 +97,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('materiales', {
   title: "Materiales",
   roles: ["admin"],
   deps: [],
@@ -435,4 +436,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

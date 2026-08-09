@@ -1,10 +1,11 @@
+(function () {
 /* ============================================================================
  * supervision.js — Vista «Supervisión en tiempo real»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
 
 
-export default {
+window.NettOps.registrarVista('supervision', {
   title: "Supervisión en tiempo real",
   roles: ["supervisor"],
   deps: [],
@@ -173,4 +174,5 @@ export default {
     </div>
   </div>
 </div>`,
-};
+});
+})();

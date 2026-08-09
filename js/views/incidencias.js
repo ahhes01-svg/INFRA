@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * incidencias.js — Vista «Incidencias»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   return {
     fSev: '', fEstado: '', q: '',
     nuevo: false,
@@ -27,7 +28,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('incidencias', {
   title: "Incidencias",
   roles: ["admin", "supervisor", "tecnico"],
   deps: [],
@@ -161,4 +162,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();

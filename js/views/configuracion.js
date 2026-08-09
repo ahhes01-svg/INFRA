@@ -1,10 +1,11 @@
+(function () {
 /* ============================================================================
  * configuracion.js — Vista «Configuración»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
 
 
-export default {
+window.NettOps.registrarVista('configuracion', {
   title: "Configuración",
   roles: ["admin"],
   deps: [],
@@ -150,4 +151,5 @@ export default {
     </section>
   </div>
 </div>`,
-};
+});
+})();

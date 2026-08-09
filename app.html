@@ -23,9 +23,14 @@
 <script src="js/core/calc.js"></script>
 <script src="js/api.js"></script>
 
-<!-- El resto (Alpine, vistas, Chart, Leaflet, FullCalendar) se carga bajo
-     demanda desde js/core/app.js -->
-<script type="module" src="js/core/app.js"></script>
+<!-- Núcleo. Son scripts clásicos a propósito: los módulos ES están bloqueados
+     al abrir el proyecto con file://, y así funciona igual desde el disco que
+     desde el servidor. El resto (Alpine, cada sección, Chart, Leaflet,
+     FullCalendar) se descarga bajo demanda. -->
+<script src="js/core/deps.js"></script>
+<script src="js/core/shell.js"></script>
+<script src="js/core/router.js"></script>
+<script src="js/core/app.js"></script>
 </head>
 <body class="bg-surface-0 text-ink-1">
 

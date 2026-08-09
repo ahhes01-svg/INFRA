@@ -1,8 +1,9 @@
+(function () {
 /* ============================================================================
  * bts-detalle.js — Vista «Ficha de sitio»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
-export const state = () => {
+const state = () => {
   const id = App.param('id') || 'st-02';
   return {
     id,
@@ -38,7 +39,7 @@ export const state = () => {
   };
 }
 
-export default {
+window.NettOps.registrarVista('bts-detalle', {
   title: "Ficha de sitio",
   roles: ["admin", "supervisor", "tecnico"],
   deps: ["mapa"],
@@ -189,4 +190,5 @@ export default {
     </div>
   </div>
 </div>`,
-};
+});
+})();

@@ -1,10 +1,11 @@
+(function () {
 /* ============================================================================
  * proyectos.js — Vista «Proyectos»
  * Módulo cargado bajo demanda por js/core/router.js
  * ==========================================================================*/
 
 
-export default {
+window.NettOps.registrarVista('proyectos', {
   title: "Proyectos",
   roles: ["admin", "supervisor"],
   deps: [],
@@ -112,4 +113,5 @@ export default {
     </div>
   </template>
 </div>`,
-};
+});
+})();
